@@ -1,0 +1,27 @@
+generated: '2026-09-14'
+method: derived
+source: openapi/hiring-index-openapi.yaml + https://hiringindex.org/docs
+note: >-
+  Cross-cutting standards asserted only where the contract or docs evidence them. The jobs / labour-market
+  data category has no dominant machine standard (no SCIM/OData/OpenRTB/FHIR equivalent applies), so no
+  domain-standard conformance is claimed - a reward-only slot left honestly empty.
+conformance:
+- id: pagination
+  conforms: true
+  evidence: openapi/hiring-index-openapi.yaml - /jobs/search returns page, limit, total_pages, total_count (page-number pagination).
+- id: iso-3166
+  conforms: true
+  evidence: Filter country_codes and Job.country_code use ISO 3166-1 alpha-2 (docs filter object + object reference).
+- id: iso-8601
+  conforms: true
+  evidence: posted_at, first_seen_at, fetched_at are ISO-8601 dates/date-times (docs "What a posting looks like").
+- id: rfc9457
+  conforms: false
+  evidence: Errors use a custom { error, message, meta } envelope, not application/problem+json. See errors/hiring-index-problem-types.yml.
+- id: oauth2
+  conforms: false
+  evidence: Auth is a RapidAPI apiKey header (x-rapidapi-key); no OAuth2/OIDC.
+- id: idempotency
+  conforms: false
+  evidence: Read-only API; no Idempotency-Key mechanism (none needed). See conventions/hiring-index-conventions.yml.
+domain_standard: none

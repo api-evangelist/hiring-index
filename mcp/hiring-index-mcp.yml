@@ -1,0 +1,47 @@
+generated: '2026-09-14'
+method: searched
+status: published
+source: https://hiringindex.org/products/mcp-server
+repo: https://github.com/starnikov-oleg-org/hiringindex-mcp
+package: https://www.npmjs.com/package/hiringindex-mcp
+deployment:
+  mode: local-stdio
+  install: npx -y hiringindex-mcp
+  package: https://www.npmjs.com/package/hiringindex-mcp
+  auth: api-key
+  verified: searched
+  note: >-
+    The provider deliberately ships NO remote /mcp endpoint. Its own MCP page states the tools
+    call the REST endpoints directly rather than proxying a remote /mcp, "so the handshake never
+    leaves your machine and only real queries cost anything." An agent must install and run the
+    npm package with a RapidAPI key (HIRINGINDEX_API_KEY) before it can reach the index — there is
+    no URL an MCP client can POST to.
+server:
+  name: hiringindex
+  transport: stdio
+  license: MIT
+  output: markdown by default; pass format=json on any tool for the raw response
+auth:
+  methods:
+  - api-key
+  api_key:
+    env: HIRINGINDEX_API_KEY
+    note: A RapidAPI subscription key; the four tools call the same RapidAPI-listed REST endpoints.
+tool_count: 4
+tools:
+- name: search_jobs
+  category: search
+  description: Filtered, paginated job search over the shared filter object (title, keyword, location, salary, work arrangement, posting age).
+  backs_operation: searchJobs
+- name: job_market_insights
+  category: insights
+  description: Aggregates over the same filter - salary percentiles, top employers, city/country/employment-type/remote/seniority/source splits, posting-age freshness.
+  backs_operation: jobInsights
+- name: posting_age_report
+  category: insights
+  description: Freshness view over a slice - median age, share posted this week, share still open past sixty days. A specialised projection of the insights freshness block.
+  backs_operation: jobInsights
+- name: get_job
+  category: job
+  description: Full detail for one posting by id.
+  backs_operation: getJob

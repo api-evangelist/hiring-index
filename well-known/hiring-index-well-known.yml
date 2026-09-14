@@ -1,0 +1,29 @@
+generated: '2026-09-14'
+method: probed
+source: Direct probes of /.well-known/* on each host the record knows.
+note: >-
+  No .well-known document is served on the provider's own hosts - every path 404s on hiringindex.org
+  and www.hiringindex.org. The RapidAPI listing host (hiringindex.p.rapidapi.com) is a marketplace
+  gateway, not a provider surface, and answers 401/429 to anonymous probes; those are not published
+  documents. No WellKnown or SecurityTxt pointer is emitted - this file records a verified absence.
+hosts:
+- host: hiringindex.org
+  documents:
+  - { path: /.well-known/security.txt, status: 404, file: null }
+  - { path: /.well-known/openid-configuration, status: 404, file: null }
+  - { path: /.well-known/oauth-authorization-server, status: 404, file: null }
+  - { path: /.well-known/oauth-protected-resource, status: 404, file: null }
+  - { path: /.well-known/api-catalog, status: 404, file: null }
+  - { path: /.well-known/ai-plugin.json, status: 404, file: null }
+  - { path: /.well-known/agent-card.json, status: 404, file: null }
+  - { path: /.well-known/agent.json, status: 404, file: null }
+- host: www.hiringindex.org
+  documents:
+  - { path: /.well-known/security.txt, status: 404, file: null }
+  - { path: /.well-known/api-catalog, status: 404, file: null }
+  - { path: /.well-known/agent-card.json, status: 404, file: null }
+- host: hiringindex.p.rapidapi.com
+  documents:
+  - { path: /.well-known/oauth-authorization-server, status: 401, file: null }
+  - { path: /.well-known/oauth-protected-resource, status: 429, file: null }
+  - { path: /.well-known/agent-card.json, status: 429, file: null }

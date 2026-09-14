@@ -1,0 +1,26 @@
+# Hiring Index
+
+> Job market data, straight from the source. Job postings read straight from employer applicant tracking systems, with an API for search and aggregates.
+
+## API
+
+- [API overview](https://hiringindex.org/products/jobs-api): what the API returns and how it differs from a job board feed.
+- [Documentation](https://hiringindex.org/docs): endpoints, filters, errors, rate limits.
+- [OpenAPI specification](https://hiringindex.org/openapi.yaml): machine-readable contract for the three public endpoints.
+- [Pricing](https://hiringindex.org/pricing): plans and what each includes.
+
+## Data
+
+- [Where the data comes from](https://hiringindex.org/sources): the applicant tracking systems behind the index, one page each.
+- [Open data](https://hiringindex.org/data): the published dataset and what is deliberately not in it.
+- [Reports](https://hiringindex.org/reports): written analyses, each carrying its own measurement date.
+
+## Browse
+
+- [Browse the index](https://hiringindex.org/browse): roles, locations, technologies and salary bands.
+- [Market insights](https://hiringindex.org/insights): aggregates across the whole index.
+
+## Optional
+
+- [Workspace](https://hiringindex.org/workspace): job search tools kept in the visitor's own browser.
+- [Brand](https://hiringindex.org/brand): names, colours and usage.

@@ -1,0 +1,56 @@
+generated: '2026-09-14'
+method: searched
+source: https://hiringindex.org/pricing
+billing_note: >-
+  Billed by results, not by calls, on RapidAPI. Two metered units: one "job" is a posting in a
+  search response or a posting fetched by id; one "insights" is one aggregate call. An empty result
+  and a rejected request cost nothing. Subscriptions are managed on RapidAPI; quotas reset monthly
+  and do not roll over.
+currency: USD
+plan_count: 5
+plans:
+- name: Free
+  price: 0
+  billing_period: month
+  limit_type: hard
+  quota:
+    postings: 200
+    insights_calls: 5
+  includes: [search, insights, single-posting, mcp-server]
+  note: No card. Usage stops at the cap and never bills.
+- name: Pro
+  price: 29
+  billing_period: month
+  limit_type: hard
+  quota:
+    postings: 25000
+    insights_calls: 250
+  includes: [search, insights, single-posting, mcp-server]
+  note: The month cannot cost more than the price.
+- name: Ultra
+  price: 79
+  billing_period: month
+  limit_type: soft
+  quota:
+    postings: 125000
+    insights_calls: 1250
+  overage:
+    per_posting: 0.0008
+    per_insights_call: 0.015
+  includes: [search, insights, single-posting, mcp-server]
+- name: Mega
+  price: 199
+  billing_period: month
+  limit_type: soft
+  quota:
+    postings: 500000
+    insights_calls: 5000
+  overage:
+    per_posting: 0.0005
+    per_insights_call: 0.01
+  includes: [priority-support]
+- name: Custom
+  price: null
+  billing_period: null
+  limit_type: negotiated
+  note: Full-index snapshots, bulk exports, custom rate limits and quotas, invoicing. Contact hello@hiringindex.org.

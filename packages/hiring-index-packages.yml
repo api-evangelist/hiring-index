@@ -1,0 +1,30 @@
+generated: '2026-09-14'
+method: searched
+source: >-
+  https://hiringindex.org/products/mcp-server and https://hiringindex.org/docs link both
+  packages; versions and dates read from registry.npmjs.org and pypi.org metadata.
+packages:
+- name: hiringindex-mcp
+  registry: npm
+  url: https://www.npmjs.com/package/hiringindex-mcp
+  official: true
+  language: javascript
+  kind: mcp-server
+  version: 0.1.1
+  published: '2026-09-11'
+  install: npx -y hiringindex-mcp
+  repo: https://github.com/starnikov-oleg-org/hiringindex-mcp
+  note: >-
+    First-party MCP server exposing four tools (search_jobs, job_market_insights,
+    posting_age_report, get_job) over the live index; runs local-stdio, needs a RapidAPI key
+    in HIRINGINDEX_API_KEY. Source is MIT-licensed.
+- name: hiringindex
+  registry: pypi
+  url: https://pypi.org/project/hiringindex/
+  official: true
+  language: python
+  kind: client
+  version: 0.1.1
+  published: '2026-09-11'
+  install: pip install hiringindex
+  note: First-party Python client for the same index, referenced from the docs and MCP page.

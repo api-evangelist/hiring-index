@@ -1,0 +1,42 @@
+generated: '2026-09-14'
+method: searched
+source: https://hiringindex.org/docs
+summary: >-
+  The hard limit that stops you is a monthly RESULT quota (postings + insights calls), enforced by
+  the RapidAPI marketplace and set by plan - see plans/hiring-index-plans-pricing.yml. Per-request
+  rate limiting is the marketplace's: exhaustion returns 429 carrying Retry-After. Two backpressure
+  codes also carry retry timing and should be retried, not logged as errors.
+limit_count: 3
+limits:
+- scope: per-key (monthly result quota)
+  window: month
+  unit: results (postings and insights calls)
+  enforced_by: RapidAPI marketplace, per plan
+  note: >-
+    Free 200 postings / 5 insights; Pro 25,000 / 250; Ultra 125,000 / 1,250 then metered overage;
+    Mega 500,000 / 5,000 then metered overage. Calls are counted too, but the quota that stops you
+    is the number of results.
+- scope: per-key (request rate)
+  status_on_exhaustion: 429
+  response_headers: [Retry-After]
+  enforced_by: RapidAPI marketplace
+  note: The marketplace answers 429 before the request reaches the API; the body carries only `message`.
+- scope: backpressure
+  status_on_exhaustion: 503
+  response_headers: [Retry-After]
+  body_field: retry_after_seconds
+  note: >-
+    503 Busy (all DB connections in use) or Timeout (an expensive /jobs/search passed the deadline).
+    Neither means the service is down; wait Retry-After / retry_after_seconds and retry.
+async_backpressure:
+  code: 202
+  endpoint: /jobs/insights
+  response_headers: [Retry-After]
+  note: >-
+    A not-yet-computed insights slice returns 202 with Retry-After (typically 30s); call again to get
+    the aggregates. Each call, including the 202, counts as one request. /jobs/insights never returns
+    503 - an uncomputed slice is 202, not a timeout.
+retry_guidance: >-
+  Retry 202, 429 and 503. Wait the Retry-After header when present, else retry_after_seconds from the
+  body. 202 promises the work has started, not that it finishes inside the first delay - a short loop
+  is the honest shape.

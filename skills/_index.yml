@@ -1,0 +1,13 @@
+generated: '2026-09-14'
+method: generated
+source: Generated from openapi/hiring-index-openapi.yaml operationIds + https://hiringindex.org/docs. No provider-published skills/AGENTS.md found.
+api: Hiring Index API
+skills:
+- name: hiring-index-search-jobs
+  file: hiring-index-search-jobs.md
+  operations: [searchJobs, getJob]
+  description: Search live postings by title/location/salary/age and fetch full detail.
+- name: hiring-index-market-insights
+  file: hiring-index-market-insights.md
+  operations: [jobInsights]
+  description: Aggregate a slice - salary percentiles, top employers, freshness - with the 202 retry loop.

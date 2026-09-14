@@ -1,0 +1,1168 @@
+# Спецификация Jobs API для листинга на RapidAPI.
+#
+# Переписана 10.09.2026 по живому API: каждый пример запроса ниже отправлен
+# дословно через листинг с ключом подписчика и вернул 200; схемы и примеры
+# ответов сняты с этих ответов (массивы урезаны, description укорочен, прочие
+# значения не тронуты). Нормативный контракт — denis/jobs-backend/02-contract.md;
+# где он расходится с живым API, здесь записано то, что API отвечает.
+#
+# Файл публикуется: никаких адресов origin, внутренних хостов и ключей.
+openapi: 3.0.3
+
+info:
+  title: Hiring Index
+  version: "1.0.0"
+  description: |
+    More than a million and a half live job postings, read straight from the
+    applicant tracking systems companies actually hire on — Workday,
+    SmartRecruiters, Greenhouse, Workable, Lever, Ashby, Recruitee, Teamtailor,
+    Breezy, Personio, Hireology, PageUp and Zoho Recruit. Tens of thousands of company career boards behind one
+    endpoint, and where a posting carries an apply link, it points at the
+    employer's own ATS form, not at a re-listing.
+
+    What this API does that a job board API does not.
+
+    **Aggregates, not pagination.** `/jobs/insights` takes the same filter as a
+    search and returns the whole picture of that slice — salary percentiles per
+    currency and pay period, top employers, city, country, platform, seniority
+    and employment-type splits, and posting age — computed server side. One call
+    answers "what does this market look like", instead of thousands of calls and
+    a spreadsheet on your side.
+
+    **Dates you can audit.** Where the ATS publishes a date, `posted_at` is the
+    employer's own publication date, and `posted_at_raw` keeps exactly what the
+    vendor wrote. When a vendor gives only a relative phrase such as
+    "Posted 30+ Days Ago", `posted_at` is left out rather than guessed.
+    `first_seen_at`, on every row, is when this index first saw the posting.
+
+    **Nothing is filled in for you.** A field the source did not state is absent
+    from the object — never null, never an empty string, never a default.
+
+servers:
+  # The public RapidAPI listing host. NOT the origin: the origin is a private address
+  # configured on the listing's target group and it must never appear in a published spec.
+  # The paths below carry no /v1 prefix because the listing declares them that way; the
+  # /v1 lives in the origin URL, where RapidAPI appends the path.
+  - url: https://hiringindex.p.rapidapi.com
+    description: RapidAPI listing (send X-RapidAPI-Key and X-RapidAPI-Host)
+
+security:
+  - rapidApiKey: []
+
+tags:
+  - name: search
+    description: Paged job search over a filter
+  - name: insights
+    description: Aggregates over the same filter - the thing no one else in the category ships
+  - name: job
+    description: A single job posting by id
+
+paths:
+  # Пути ровно те, что заведены в листинге: search, insights, job. GET /healthz был
+  # объявлен здесь как запасной вариант T-008 и в кабинет не заливался — на маркетплейсе
+  # он отдаёт 404 "Endpoint does not exist" (замер джуна 12.09, T-068). Спека с эндпоинтом,
+  # которого в листинге нет, — это пример, по которому клиент получает 404; убран 12.09.
+  # Текст на /docs («There is no separate liveness path on the listing») этим остаётся правдой.
+  /jobs/search:
+    post:
+      tags: [search]
+      operationId: searchJobs
+      summary: Search job postings
+      description: |
+        Returns a page of postings matching the filter. The request body is the
+        filter object itself, at the top level — there is no wrapper. Send `{}` to
+        match everything; a request with no body at all is rejected with `400`.
+
+        All filters are optional; an absent key and an empty array mean the same
+        thing — the filter is not applied. An unknown key is rejected with `422`
+        and the list of valid keys, so a typo never returns a silently wrong slice.
+
+        `job_titles` matches the posting title only. `keywords` matches the title
+        or the description, and several keywords are matched as OR, not AND: a
+        request for `["Kubernetes", "Terraform"]` returns postings mentioning
+        either. A keyword found in more than about 130,000 postings returns
+        `422 keyword_too_common` in milliseconds instead of a timeout; narrowing by
+        city or country does not help, so use `job_titles` for the role or a rarer
+        term.
+
+        `page` and `limit` both run from 1 to 100, so one filter yields at most
+        10,000 rows. When a filter matches more than that window, `total_pages`
+        stops at 100 and `pages_truncated` says how many rows are reachable. One
+        page past the end is an empty `200`, not an error.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SearchRequest' }
+            examples:
+              remoteDataEngineers:
+                summary: Remote data engineering roles posted in the last week
+                value:
+                  job_titles: ["Data Engineer"]
+                  remote_flag: ["true"]
+                  days_ago: 7
+                  limit: 20
+              berlinYearlyPay:
+                summary: Berlin roles whose advertised yearly pay reaches €60,000
+                value:
+                  cities: ["Berlin"]
+                  salary: { min: 60000, period: ["year"], currency: ["EUR"], match: overlaps }
+                  limit: 20
+      responses:
+        '200':
+          description: Page of postings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResponse' }
+              examples:
+                berlinYearlyPay:
+                  summary: Response to berlinYearlyPay, captured 2026-09-10 (two rows shown, description shortened)
+                  value:
+                    jobs:
+                    - _id: YXNoYnl8YWxtZWRpYXwxOGM1YmNhOS01MmM5LTRkZWMtOGJmYi1jNmUyNzZkYWNlZGF8MA
+                      source_platform: ashby
+                      handle: almedia
+                      source_job_id: 18c5bca9-52c9-4dec-8bfb-c6e276daceda
+                      record_index: 0
+                      title: Senior Growth Manager (Berlin)
+                      company_name: Almedia
+                      description: <p style="min-height:1.5em">This isn’t your regular job. Almedia is a place where those wh…
+                      posted_at: '2026-09-09T14:43:52.483+00:00'
+                      posted_at_raw: '2026-09-09T14:43:52.483+00:00'
+                      posting_url: https://jobs.ashbyhq.com/almedia/18c5bca9-52c9-4dec-8bfb-c6e276daceda
+                      apply_url: https://jobs.ashbyhq.com/almedia/18c5bca9-52c9-4dec-8bfb-c6e276daceda/application
+                      location_raw: Berlin
+                      city: Berlin
+                      region: Berlin
+                      country: Germany
+                      country_code: DE
+                      postal_code: '10117'
+                      remote_flag: 'false'
+                      employment_type: FullTime
+                      department: Growth
+                      team: Advertiser Growth
+                      salary_text: €75K – €100K • Offers Equity • Offers Bonus
+                      salary:
+                        min: 75000
+                        max: 100000
+                        currency: EUR
+                        period: 1 YEAR
+                        source: vendor_field
+                        confidence: stated
+                      first_seen_at: '2026-09-10T02:50:23.085014+00:00'
+                      fetched_at: '2026-09-10T02:50:23.085014+00:00'
+                      content_hash: daca92c9fc8dc1ee05fc31644fb8e25c7b63503861d3a4475421e7113bb7048d
+                    - _id: YXNoYnl8YWxtZWRpYXw5MGRiZjE3Yi1mNzA5LTRjZmMtOTc3NS04ZjY0MmQ5MzFkNTh8MA
+                      source_platform: ashby
+                      handle: almedia
+                      source_job_id: 90dbf17b-f709-4cfc-9775-8f642d931d58
+                      record_index: 0
+                      title: Founding Engineer
+                      company_name: Almedia
+                      description: <p style="min-height:1.5em">This isn’t your regular job. Almedia is a place where those wh…
+                      posted_at: '2026-09-09T13:25:49.087+00:00'
+                      posted_at_raw: '2026-09-09T13:25:49.087+00:00'
+                      posting_url: https://jobs.ashbyhq.com/almedia/90dbf17b-f709-4cfc-9775-8f642d931d58
+                      apply_url: https://jobs.ashbyhq.com/almedia/90dbf17b-f709-4cfc-9775-8f642d931d58/application
+                      location_raw: Berlin
+                      city: Berlin
+                      region: Berlin
+                      country: Germany
+                      country_code: DE
+                      postal_code: '10117'
+                      remote_flag: 'false'
+                      employment_type: FullTime
+                      department: Tech
+                      team: Engineering
+                      salary_text: €90K – €150K • Offers Equity
+                      salary:
+                        min: 90000
+                        max: 150000
+                        currency: EUR
+                        period: 1 YEAR
+                        source: vendor_field
+                        confidence: stated
+                      first_seen_at: '2026-09-03T23:12:31.801589+00:00'
+                      fetched_at: '2026-09-10T02:50:23.085014+00:00'
+                      content_hash: 960fae4b642c8094056a1835f710da4a3c9719889a3e4a603db520bfc1c3dc86
+                    total_count: 207
+                    company_count: 33
+                    page: 1
+                    limit: 20
+                    total_pages: 11
+                    meta:
+                      request_id: be8374ea54b3756c61e55409f09e8075
+                      took_ms: 62.35
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Busy' }
+
+  /jobs/insights:
+    post:
+      tags: [insights]
+      operationId: jobInsights
+      summary: Aggregates over a filtered slice
+      description: |
+        Takes the same filter as `/jobs/search` — without `page` and `limit`,
+        which it rejects — and returns aggregates over the whole matching set, not
+        over one page.
+
+        - `headline`: rows and distinct postings matched, named employers, how many
+          rows carry a salary, a publication date and a description, and postings
+          first seen in the last seven days.
+        - `salary`: percentiles of the lower and the upper end of the advertised
+          band, one entry per currency and pay period as the employer wrote them,
+          so hourly, monthly and yearly pay are never averaged into one number. An
+          entry needs at least 30 disclosed salaries: a narrow slice returns an
+          empty array rather than a median of five rows.
+        - `freshness` and `posted_at`: posting age in days, counted from the
+          employer's publication date.
+        - `top_companies` and the `*_split` lists: counts by employer, city,
+          country code, ATS platform, board handle, seniority, employment type and
+          remote flag. Split values are the vendor's own strings, so `Full-time`
+          and `FullTime` arrive as separate rows.
+
+        This is the call that replaces a data pipeline. Ask about Software
+        Engineers in San Francisco and get the pay band, who is hiring and how old
+        the listings are — in one round trip, billed as one call.
+
+        **Grouped mode.** Add `group_by` together with a `cities` or
+        `country_codes` list and the answer comes back as one block per city or
+        country in `groups[]` — one call instead of one per location.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InsightsRequest' }
+            examples:
+              sfSoftwareEngineers:
+                summary: What the Software Engineer market looks like in San Francisco
+                value:
+                  job_titles: ["Software Engineer"]
+                  cities: ["San Francisco"]
+              berlinDataEngineers:
+                summary: Data Engineers in Berlin
+                value:
+                  job_titles: ["Data Engineer"]
+                  cities: ["Berlin"]
+              byCountry:
+                summary: Data Engineers in Germany and the Netherlands, one block per country
+                value:
+                  job_titles: ["Data Engineer"]
+                  country_codes: ["DE", "NL"]
+                  group_by: country_code
+                  percentiles: true
+      responses:
+        '202':
+          description: |
+            A filter that is not cached yet returns 202 with `Retry-After: 30`; call again
+            after the delay to get the full aggregates (`meta.computed_at`). Each call,
+            including the 202, counts as one request against your plan.
+
+            This replaces the deadline `503` that `/jobs/insights` used to return: after
+            T-072 that path no longer exists here. `503 Busy` still applies to both
+            endpoints.
+          headers:
+            Retry-After:
+              description: Seconds to wait before repeating the call. A hint, not a guarantee.
+              schema: { type: integer, example: 30 }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message]
+                properties:
+                  status: { type: string, example: computing }
+                  message: { type: string }
+                  retry_after_seconds: { type: integer, example: 30 }
+                  meta: { type: object }
+              example:
+                status: computing
+                message: this filter has not been computed yet. The work has started; ask again in about 30 seconds and the answer will be here.
+                retry_after_seconds: 30
+                meta:
+                  request_id: 9bb8feb8f661bb27d7e73f0e6a3f3512
+                  took_ms: 1.65
+        '200':
+          description: |
+            Aggregates. Without `group_by` the blocks sit at the top level; with it
+            the response is `group_by` plus `groups[]`, one set of blocks per group.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InsightsResponse' }
+              examples:
+                sfSoftwareEngineers:
+                  summary: Response to sfSoftwareEngineers, captured 2026-09-10 (lists trimmed to three)
+                  value:
+                    headline:
+                      row_count: 1053
+                      job_count: 1047
+                      company_count: 300
+                      with_salary: 643
+                      with_posted_at: 1053
+                      with_description: 1004
+                      with_detail: 46
+                      new_this_week: 59
+                    salary:
+                    - currency: USD
+                      period: 1 YEAR
+                      count: 635
+                      min:
+                        p25: 168000
+                        p50: 200000
+                        p75: 230000
+                        p90: 266000
+                      max:
+                        p25: 250000
+                        p50: 300000
+                        p75: 390000
+                        p90: 445000
+                    posted_at:
+                      count: 1053
+                      days_since_posted:
+                        p25: 36
+                        p50: 98
+                        p75: 225
+                    freshness:
+                      count: 1053
+                      median_days_live: 98
+                      pct_last_7_days: 5.6
+                      pct_over_60_days: 63.1
+                    top_companies:
+                    - company_name: OpenAI
+                      count: 124
+                    - company_name: Crusoe
+                      count: 38
+                    - company_name: Harvey
+                      count: 31
+                    city_split:
+                    - value: San Francisco
+                      count: 1053
+                    country_code_split:
+                    - value: US
+                      count: 991
+                    - value: us
+                      count: 46
+                    employment_type_split:
+                    - value: FullTime
+                      count: 966
+                    - value: Full-time
+                      count: 62
+                    - value: Intern
+                      count: 13
+                    remote_flag_split:
+                    - value: 'false'
+                      count: 477
+                    - value: 'true'
+                      count: 418
+                    seniority_split:
+                    - value: Mid-Senior Level
+                      count: 37
+                    - value: Mid-Senior level
+                      count: 11
+                    - value: Entry Level
+                      count: 7
+                    platform_split:
+                    - value: ashby
+                      count: 980
+                    - value: smartrecruiters
+                      count: 46
+                    - value: workable
+                      count: 24
+                    handle_split:
+                    - value: openai
+                      count: 125
+                    - value: crusoe
+                      count: 38
+                    - value: harvey
+                      count: 31
+                    meta:
+                      request_id: 1e36fe5edd51b40581624be307ac5d45
+                      took_ms: 714.67
+                byCountry:
+                  summary: Response to byCountry, captured 2026-09-10 (one group shown, lists trimmed to three)
+                  value:
+                    group_by: country_code
+                    groups:
+                    - country_code: nl
+                      row_count: 95
+                      with_salary: 34
+                      new_this_week: 17
+                      with_posted_at: 95
+                      with_description: 66
+                      with_detail: 28
+                      top_companies:
+                      - value: Sia
+                        count: 16
+                      - value: Metyis AG
+                        count: 5
+                      - value: Sopra Steria
+                        count: 5
+                      city_split:
+                      - value: amsterdam
+                        count: 25
+                      - value: rotterdam
+                        count: 14
+                      - value: maastricht
+                        count: 8
+                      country_code_split:
+                      - value: nl
+                        count: 95
+                      employment_type_split:
+                      - value: fulltime_fixed_term
+                        count: 32
+                      - value: Full-time
+                        count: 31
+                      - value: fulltime_permanent
+                        count: 25
+                      remote_flag_split:
+                      - value: 'false'
+                        count: 88
+                      - value: 'true'
+                        count: 7
+                      seniority_split:
+                      - value: mid_level
+                        count: 29
+                      - value: Mid-Senior Level
+                        count: 27
+                      - value: experienced
+                        count: 25
+                      platform_split:
+                      - value: recruitee
+                        count: 61
+                      - value: smartrecruiters
+                        count: 28
+                      - value: workable
+                        count: 4
+                      freshness:
+                        count: 95
+                        median_days_live: 62
+                        pct_last_7_days: 17.9
+                        pct_over_60_days: 50.5
+                        p25: 14.5
+                        p75: 226
+                        p90: 517.6
+                      salary:
+                      - count: 32
+                        currency: EUR
+                        period: month
+                        min:
+                          p25: 3500
+                          p50: 4000
+                          p75: 5000
+                          p90: 5500
+                    meta:
+                      request_id: 4e9c60b413cf0442261e8071b9eb49ed
+                      took_ms: 1010.13
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Busy' }
+
+  /jobs/{id}:
+    get:
+      tags: [job]
+      operationId: getJob
+      summary: One posting by id
+      description: |
+        The same object a search returns for that posting, including the
+        description where the source publishes one.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: Value of `_id` from a search response, used verbatim
+          example: YXNoYnl8YWxtZWRpYXwxOGM1YmNhOS01MmM5LTRkZWMtOGJmYi1jNmUyNzZkYWNlZGF8MA
+      responses:
+        '200':
+          description: The posting
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+              examples:
+                almedia:
+                  summary: Captured 2026-09-10 (description shortened)
+                  value:
+                    _id: YXNoYnl8YWxtZWRpYXwxOGM1YmNhOS01MmM5LTRkZWMtOGJmYi1jNmUyNzZkYWNlZGF8MA
+                    source_platform: ashby
+                    handle: almedia
+                    source_job_id: 18c5bca9-52c9-4dec-8bfb-c6e276daceda
+                    record_index: 0
+                    title: Senior Growth Manager (Berlin)
+                    company_name: Almedia
+                    description: <p style="min-height:1.5em">This isn’t your regular job. Almedia is a place where those wh…
+                    posted_at: '2026-09-09T14:43:52.483+00:00'
+                    posted_at_raw: '2026-09-09T14:43:52.483+00:00'
+                    posting_url: https://jobs.ashbyhq.com/almedia/18c5bca9-52c9-4dec-8bfb-c6e276daceda
+                    apply_url: https://jobs.ashbyhq.com/almedia/18c5bca9-52c9-4dec-8bfb-c6e276daceda/application
+                    location_raw: Berlin
+                    city: Berlin
+                    region: Berlin
+                    country: Germany
+                    country_code: DE
+                    postal_code: '10117'
+                    remote_flag: 'false'
+                    employment_type: FullTime
+                    department: Growth
+                    team: Advertiser Growth
+                    salary_text: €75K – €100K • Offers Equity • Offers Bonus
+                    salary:
+                      min: 75000
+                      max: 100000
+                      currency: EUR
+                      period: 1 YEAR
+                      source: vendor_field
+                      confidence: stated
+                    first_seen_at: '2026-09-10T02:50:23.085014+00:00'
+                    fetched_at: '2026-09-10T02:50:23.085014+00:00'
+                    content_hash: daca92c9fc8dc1ee05fc31644fb8e25c7b63503861d3a4475421e7113bb7048d
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: No posting with that id
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error: not_found
+                message: that is not an id this API issued. An _id comes from a search response and is used verbatim.
+                meta:
+                  request_id: 86ae6ea2dab6b6f5f07e54e1af0b97e0
+                  took_ms: 0.27
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Busy' }
+
+components:
+  securitySchemes:
+    rapidApiKey:
+      type: apiKey
+      in: header
+      name: x-rapidapi-key
+
+  responses:
+    BadRequest:
+      description: No body, or a body that is not a JSON object
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: invalid_request
+            message: the request has no body. Send a JSON object; {} is the filter that matches everything.
+            meta:
+              request_id: 7930fd0adc27ed3a6cde6a53ce338d2c
+              took_ms: 0.07
+    Unauthorized:
+      description: |
+        Missing or invalid key. Answered by the marketplace before the request
+        reaches this API, in its own shape — `message` only, no `error`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MarketplaceError' }
+    Forbidden:
+      description: |
+        A valid key without a subscription to this API. Answered by the
+        marketplace, `message` only.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MarketplaceError' }
+          example:
+            message: You are not subscribed to this API.
+    Unprocessable:
+      description: |
+        The filter is well-formed JSON but cannot be run. `error` is
+        `invalid_request` (an unknown key or a malformed value — `message` names
+        it and lists the valid keys) or `keyword_too_common` (a `keywords` term
+        matches too many postings — `meta.estimated_matches` and `meta.limit` say
+        by how much).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            unknownKey:
+              summary: A key the API does not have
+              value:
+                error: invalid_request
+                message: '''location_types'' is not a filter key. The keys are: cities, company_name, country_codes, days_ago, employment_type, handles, job_titles, keywords, limit, page, remote_flag, salary, seniority, source_platforms'
+                meta:
+                  request_id: de1bb62e86aa15134ec156b64dca09b8
+                  took_ms: 0.16
+            keywordTooCommon:
+              summary: '{"keywords": ["experience"]}'
+              value:
+                error: keyword_too_common
+                message: '''experience'' appears in about 64% of postings (~1,123,068 matches); keyword aggregates are computed for terms under 130,000 matches. Search the role with job_titles, or use a rarer keyword -- narrowing by city, country or employment type does not help: the term scan comes first.'
+                meta:
+                  term: experience
+                  estimated_matches: 1123068
+                  limit: 130000
+                  request_id: 32c3863fafb59454773a444e7e782c7f
+                  took_ms: 1.48
+    RateLimited:
+      description: Plan quota or rate limit exceeded. Answered by the marketplace; see its rate-limit headers.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MarketplaceError' }
+    Busy:
+      description: Capacity exhausted for the moment (`busy`), or the filter did not finish inside the statement deadline (`timeout`). Retry after `retry_after_seconds`, or narrow the filter.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Meta:
+      type: object
+      description: Present on every response of this API.
+      properties:
+        request_id:
+          type: string
+          description: Quote it when you contact support.
+          example: be8374ea54b3756c61e55409f09e8075
+        took_ms:
+          type: number
+          description: Server time in milliseconds — tells our part from the network's.
+          example: 62.35
+
+    Error:
+      type: object
+      description: Every error this API itself returns. Branch on `error`, not on `message`.
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Short code for the client to branch on.
+          example: invalid_request
+          enum: [invalid_request, keyword_too_common, not_found, busy, timeout]
+        message:
+          type: string
+          description: Human-readable explanation; wording may change.
+        retry_after_seconds:
+          type: integer
+          description: '`busy` and `timeout` only: how long to wait before retrying — 1 second for `busy`, 2 for `timeout`.'
+        meta:
+          type: object
+          properties:
+            request_id: { type: string }
+            took_ms: { type: number }
+            term:
+              type: string
+              description: '`keyword_too_common` only: the keyword that was refused.'
+            estimated_matches:
+              type: integer
+              description: '`keyword_too_common` only: roughly how many postings mention it.'
+            limit:
+              type: integer
+              description: '`keyword_too_common` only: the ceiling a keyword must stay under.'
+
+    MarketplaceError:
+      type: object
+      description: Shape of 401, 403 and 429, which the marketplace answers before the request reaches this API.
+      properties:
+        message: { type: string }
+
+    SalaryFilter:
+      type: object
+      description: |
+        Filter on the advertised pay band; only postings that disclose a salary
+        can match. Amounts are never converted between currencies: `min` and `max`
+        are compared with the band in the currency the posting advertises. Send
+        `currency` to keep the comparison in one currency — without it a 60,000
+        bound matches 60,000 euros, dollars and rupees alike.
+      properties:
+        min:
+          type: number
+          example: 60000
+        max:
+          type: number
+          example: 90000
+        currency:
+          type: array
+          items: { type: string }
+          description: |
+            ISO 4217 codes, any case. Keeps only postings advertised in these
+            currencies. Nothing is converted.
+          example: ["EUR"]
+        period:
+          type: array
+          items: { type: string }
+          description: |
+            Pay period, as an array: `year`, `month`, `week`, `day` or `hour`. Always
+            send it: without it a yearly bound is compared with hourly and monthly
+            rates as bare numbers. Vendor spellings read from a response (`1 YEAR`,
+            `bi-week-salary`, `one-time`) are accepted too; anything else is rejected
+            with 422 `invalid_request`, and the message lists what is accepted.
+          example: ["year"]
+        match:
+          type: string
+          enum: [contains, overlaps]
+          default: contains
+          description: |
+            How a posting's band has to meet your bounds. `contains` keeps only
+            postings whose whole band sits inside them; `overlaps` keeps every
+            posting whose band touches them — what a question like "which roles
+            can pay me this" means.
+
+    JobFilter:
+      type: object
+      description: |
+        The filter `/jobs/search` and `/jobs/insights` share. Sent as the request
+        body itself. An absent key and an empty array both mean "not applied";
+        an unknown key is rejected with `422`. String lists match any of their
+        values (OR).
+      properties:
+        job_titles:
+          type: array
+          items: { type: string, minLength: 3 }
+          description: |
+            Matched against the posting title only. Terms shorter than three
+            characters are rejected.
+          example: ["Data Engineer", "Analytics Engineer"]
+        keywords:
+          type: array
+          items: { type: string, minLength: 3 }
+          description: |
+            Matched against the title or the description — a tool, a skill, a
+            technology. Any keyword matches. A term found in more than about
+            130,000 postings returns `422 keyword_too_common`.
+          example: ["Kubernetes", "Terraform"]
+        cities:
+          type: array
+          items: { type: string }
+          description: City names as employers write them.
+          example: ["Berlin", "Munich"]
+        country_codes:
+          type: array
+          items: { type: string, minLength: 2, maxLength: 2 }
+          description: |
+            ISO 3166-1 alpha-2 codes, matched in either case. A country name such
+            as "Germany" matches nothing — send `DE`.
+          example: ["DE", "NL"]
+        company_name:
+          type: string
+          description: |
+            The employer name, matched whole and case-insensitively — no prefix or
+            partial match. Some sources do not publish the employer at all; to pull
+            one employer's own board, `handles` is the precise filter.
+          example: Delivery Hero
+        handles:
+          type: array
+          items: { type: string }
+          description: ATS board handles, exactly as the `handle` field of a posting reports them.
+          example: ["DeliveryHero"]
+        remote_flag:
+          type: array
+          items: { type: string }
+          description: |
+            `["true"]` for remote postings, `["false"]` for on-site ones; vendor
+            spellings such as `Remote` fold into `true`. Hybrid is not a filter
+            value — read `hybrid_flag` on the returned rows.
+          example: ["true"]
+        employment_type:
+          type: array
+          items: { type: string }
+          description: |
+            Employment type as the vendor writes it, compared without regard to
+            case: `Full-time` matches `Full-Time`, but not `FullTime`. To catch every
+            spelling of one type, list them all — `employment_type_split` in an
+            insights response shows which spellings a slice actually has. The slowest
+            filter — a wide slice can take several seconds.
+          example: ["Full-time"]
+        seniority:
+          type: array
+          items: { type: string }
+          description: Seniority as the `seniority` field of a posting reports it.
+          example: ["Mid-Senior Level"]
+        source_platforms:
+          type: array
+          items: { type: string }
+          description: |
+            The ATS a posting was read from: workday, smartrecruiters, greenhouse,
+            workable, lever, ashby, recruitee, teamtailor, breezy, personio, hireology,
+            pageup, zoho.
+          example: ["greenhouse", "lever"]
+        salary: { $ref: '#/components/schemas/SalaryFilter' }
+        days_ago:
+          type: integer
+          minimum: 0
+          description: |
+            Published no earlier than N days ago, by `posted_at`. Postings without
+            a publication date never match.
+          example: 7
+
+    SearchRequest:
+      description: The shared filter plus paging.
+      allOf:
+        - $ref: '#/components/schemas/JobFilter'
+        - type: object
+          properties:
+            page:
+              type: integer
+              minimum: 1
+              maximum: 100
+              default: 1
+            limit:
+              type: integer
+              minimum: 1
+              maximum: 100
+              default: 25
+
+    InsightsRequest:
+      description: The shared filter plus the grouping options. `page` and `limit` are rejected here.
+      allOf:
+        - $ref: '#/components/schemas/JobFilter'
+        - type: object
+          properties:
+            group_by:
+              type: string
+              enum: [city, city_only, country_code]
+              description: |
+                Return one block per location instead of one for the whole slice.
+                `city` groups by city and country code, `city_only` by city name
+                alone, `country_code` by country. A string, not an array. Send the
+                locations to group in `cities` or `country_codes`.
+            city_aliases:
+              type: object
+              additionalProperties: { type: string }
+              description: |
+                With `group_by: city` or `city_only`, folds alternative spellings into one group:
+                each key is a spelling listed in `cities`, its value the city whose
+                group it joins.
+              example: { "Bangalore": "Bengaluru" }
+            min_rows:
+              type: integer
+              minimum: 0
+              description: With `group_by`, leave out groups with fewer rows than this. `0` returns every group.
+            percentiles:
+              type: boolean
+              description: With `group_by`, add p25, p75 and p90 of posting age to each group's `freshness`.
+
+    Salary:
+      type: object
+      description: |
+        The pay the employer advertises, as the employer states it: numbers in
+        the posting's own currency and period. `period` is the vendor's spelling
+        (`1 YEAR`, `year`, `per-year-salary`, `month`, `1 HOUR` …). Either end of
+        the band can be absent when the employer gives only one.
+      properties:
+        min: { type: number, example: 75000 }
+        max: { type: number, example: 100000 }
+        currency:
+          type: string
+          description: ISO 4217
+          example: EUR
+        period: { type: string, example: 1 YEAR }
+        source:
+          type: string
+          description: Where the band was read from.
+          example: vendor_field
+        confidence:
+          type: string
+          example: stated
+
+    Job:
+      type: object
+      description: |
+        One posting. A field the source did not state is absent — never null,
+        never an empty string. Location fields are flat: a posting listed in
+        several places arrives as several rows that differ in `record_index`.
+      required: [_id, source_platform, handle, source_job_id, record_index, title, first_seen_at, fetched_at, content_hash]
+      properties:
+        _id:
+          type: string
+          description: Stable id; pass it to `GET /jobs/{id}` verbatim.
+          example: YXNoYnl8YWxtZWRpYXwxOGM1YmNhOS01MmM5LTRkZWMtOGJmYi1jNmUyNzZkYWNlZGF8MA
+        source_platform:
+          type: string
+          description: The ATS the posting was read from.
+          example: ashby
+        handle:
+          type: string
+          description: The employer's board on that ATS — also a filter (`handles`).
+          example: almedia
+        source_job_id: { type: string, description: The posting's id on its ATS. }
+        record_index:
+          type: integer
+          description: Which of the posting's locations this row is, from 0.
+          example: 0
+        requisition_id: { type: string, description: The employer's requisition number. }
+        title: { type: string, example: Senior Growth Manager (Berlin) }
+        company_name:
+          type: string
+          description: The employer as the source names it. Absent where the ATS does not publish it (Workday, often Ashby).
+          example: Almedia
+        description:
+          type: string
+          description: The posting body as the source publishes it (HTML).
+        detail:
+          type: object
+          description: |
+            A second read of the posting page, for sources whose listing omits
+            fields. `filled` names the top-level fields it supplied.
+          properties:
+            fetched_at: { type: string, format: date-time }
+            description: { type: string, description: The posting body from that page (HTML). }
+            filled:
+              type: array
+              items: { type: string }
+              example: ["country", "posting_url"]
+        posted_at:
+          type: string
+          description: |
+            The employer's publication date, normalised: `YYYY-MM-DD` or a full
+            ISO 8601 timestamp, depending on how precisely the source states it.
+            Absent when the source gives only a relative phrase.
+          example: "2026-09-09T14:43:52.483+00:00"
+        posted_at_raw:
+          type: string
+          description: The publication date exactly as the vendor wrote it.
+          example: Posted 10 Sept 2026
+        updated_at: { type: string, description: 'When the source last changed the posting, where it says.' }
+        updated_at_raw: { type: string }
+        posting_url:
+          type: string
+          format: uri
+          description: The posting on the employer's ATS.
+        apply_url:
+          type: string
+          format: uri
+          description: The employer's own application form, where the source carries one.
+        location_raw: { type: string, example: Berlin }
+        city: { type: string, example: Berlin }
+        region: { type: string, example: Berlin }
+        country: { type: string, example: Germany }
+        country_code:
+          type: string
+          description: ISO 3166-1 alpha-2, in the case the source wrote it (`DE`, `us`).
+          example: DE
+        postal_code: { type: string }
+        street_address: { type: string }
+        latitude: { type: string, description: 'Decimal degrees, as a string.' }
+        longitude: { type: string, description: 'Decimal degrees, as a string.' }
+        remote_flag:
+          type: string
+          description: |
+            A string, not a boolean — usually `"true"` or `"false"`, sometimes the
+            vendor's own word (`"remote"`). Test the value, not its truthiness.
+          example: "false"
+        hybrid_flag:
+          type: string
+          description: '`"true"` or `"false"`, as a string.'
+        employment_type:
+          type: string
+          description: As the vendor writes it (`Full-time`, `FullTime`, `fulltime_permanent` …).
+          example: FullTime
+        seniority:
+          type: string
+          description: As the vendor writes it (`Mid-Senior Level`, `Associate`, `experienced` …).
+        industry: { type: string }
+        function: { type: string }
+        department: { type: string, example: Growth }
+        team: { type: string, example: Advertiser Growth }
+        education_level: { type: string }
+        language:
+          type: string
+          description: Language of the posting, ISO 639-1.
+          example: en
+        salary: { $ref: '#/components/schemas/Salary' }
+        salary_text:
+          type: string
+          description: The pay line exactly as advertised.
+          example: "€75K – €100K • Offers Equity • Offers Bonus"
+        first_seen_at:
+          type: string
+          format: date-time
+          description: When this index first saw the posting.
+        fetched_at:
+          type: string
+          format: date-time
+          description: When the source was last read. Sources are re-read daily.
+        content_hash:
+          type: string
+          description: Hash of the posting content — changes when the posting changes.
+
+    SearchResponse:
+      type: object
+      required: [jobs, total_count, company_count, page, limit, total_pages, meta]
+      properties:
+        jobs:
+          type: array
+          items: { $ref: '#/components/schemas/Job' }
+        total_count:
+          type: integer
+          description: Rows matching the filter.
+          example: 207
+        company_count:
+          type: integer
+          description: Distinct named employers among them; rows without `company_name` are not counted.
+          example: 33
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        total_pages:
+          type: integer
+          description: Pages reachable at this `limit`, never more than 100.
+          example: 11
+        pages_truncated:
+          type: object
+          description: Present only when the filter matches more rows than 100 pages reach.
+          properties:
+            reachable_rows: { type: integer, example: 2000 }
+            pages_if_unbounded: { type: integer, example: 33113 }
+            why: { type: string }
+        meta: { $ref: '#/components/schemas/Meta' }
+
+    Bucket:
+      type: object
+      description: One value of a split and the number of rows carrying it.
+      properties:
+        value: { type: string, example: San Francisco }
+        count: { type: integer, example: 1053 }
+
+    CompanyBucket:
+      type: object
+      properties:
+        company_name: { type: string, example: OpenAI }
+        count: { type: integer, example: 124 }
+
+    Percentiles:
+      type: object
+      properties:
+        p25: { type: number }
+        p50: { type: number }
+        p75: { type: number }
+        p90: { type: number }
+
+    SalarySlice:
+      type: object
+      description: |
+        Pay percentiles for one currency and pay period. `min` describes the lower
+        ends of the advertised bands, `max` the upper ends. `period` is the
+        vendor's spelling and is absent when the source gave none.
+      properties:
+        currency: { type: string, example: USD }
+        period: { type: string, example: 1 YEAR }
+        count:
+          type: integer
+          description: Disclosed salaries in this slice.
+          example: 635
+        min: { $ref: '#/components/schemas/Percentiles' }
+        max: { $ref: '#/components/schemas/Percentiles' }
+
+    Freshness:
+      type: object
+      description: Age of the postings in days, counted from `posted_at`; rows without a date are left out.
+      properties:
+        count:
+          type: integer
+          description: Rows with a publication date.
+        median_days_live: { type: number, example: 98 }
+        pct_last_7_days: { type: number, example: 5.6 }
+        pct_over_60_days: { type: number, example: 63.1 }
+        p25: { type: number, description: 'Grouped mode with `percentiles: true` only.' }
+        p75: { type: number, description: 'Grouped mode with `percentiles: true` only.' }
+        p90: { type: number, description: 'Grouped mode with `percentiles: true` only.' }
+
+    Headline:
+      type: object
+      properties:
+        row_count:
+          type: integer
+          description: Rows matching the filter.
+          example: 1053
+        job_count:
+          type: integer
+          description: Distinct postings — a posting listed in several places is one job and several rows.
+          example: 1047
+        company_count:
+          type: integer
+          description: Distinct named employers.
+          example: 300
+        with_salary: { type: integer, description: Rows that disclose a salary., example: 643 }
+        with_posted_at: { type: integer, description: Rows with a publication date., example: 1053 }
+        with_description: { type: integer, description: Rows with a description., example: 1004 }
+        with_detail: { type: integer, description: Rows with a second read of the posting page., example: 46 }
+        new_this_week:
+          type: integer
+          description: Rows first seen by this index in the last seven days.
+          example: 59
+
+    InsightsGroup:
+      type: object
+      description: |
+        The blocks for one group. Carries the group's key (`city` and/or
+        `country_code`, lower-cased), the counts of `Headline` except `job_count`
+        and `company_count`, and the splits. `salary` is absent when no slice in
+        the group reaches 30 disclosed salaries.
+      properties:
+        city: { type: string }
+        country_code: { type: string, example: nl }
+        row_count: { type: integer }
+        with_salary: { type: integer }
+        new_this_week: { type: integer }
+        with_posted_at: { type: integer }
+        with_description: { type: integer }
+        with_detail: { type: integer }
+        top_companies:
+          type: array
+          items: { $ref: '#/components/schemas/Bucket' }
+        city_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        country_code_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        employment_type_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        remote_flag_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        seniority_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        platform_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        freshness: { $ref: '#/components/schemas/Freshness' }
+        salary:
+          type: array
+          items: { $ref: '#/components/schemas/SalarySlice' }
+
+    InsightsResponse:
+      type: object
+      description: |
+        Without `group_by`: `headline` through `handle_split` at the top level.
+        With `group_by`: only `group_by`, `groups` and `meta`.
+      required: [meta]
+      properties:
+        headline: { $ref: '#/components/schemas/Headline' }
+        salary:
+          type: array
+          description: One entry per currency and pay period; empty when no slice reaches 30 disclosed salaries.
+          items: { $ref: '#/components/schemas/SalarySlice' }
+        posted_at:
+          type: object
+          description: Posting age in days, counted from `posted_at`.
+          properties:
+            count: { type: integer }
+            days_since_posted:
+              type: object
+              properties:
+                p25: { type: number }
+                p50: { type: number }
+                p75: { type: number }
+        freshness: { $ref: '#/components/schemas/Freshness' }
+        top_companies:
+          type: array
+          items: { $ref: '#/components/schemas/CompanyBucket' }
+        city_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        country_code_split:
+          type: array
+          description: The same country can appear twice, once per case the sources wrote it in (`DE`, `de`).
+          items: { $ref: '#/components/schemas/Bucket' }
+        employment_type_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        remote_flag_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        seniority_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        platform_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        handle_split: { type: array, items: { $ref: '#/components/schemas/Bucket' } }
+        group_by:
+          type: string
+          enum: [city, city_only, country_code]
+          description: Grouped mode only — echoes the request.
+        groups:
+          type: array
+          description: Grouped mode only.
+          items: { $ref: '#/components/schemas/InsightsGroup' }
+        meta: { $ref: '#/components/schemas/Meta' }

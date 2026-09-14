@@ -1,0 +1,58 @@
+generated: '2026-09-14'
+method: derived
+source: >-
+  Derived from openapi/hiring-index-openapi.yaml 4xx/5xx responses and enriched from the error
+  reference at https://hiringindex.org/docs.
+format: custom-json
+envelope:
+  shape: '{ "error": "<code>", "message": "<human text>", "meta": { "request_id": "<id>" } }'
+  branch_on: error
+  human_field: message
+  correlation_field: meta.request_id
+  note: >-
+    Not RFC 9457. One envelope for every error THIS API returns; branch on `error`, not on `message`.
+    An empty jobs array with total_count 0 is a normal 200 (a filter that matched nothing), never a
+    failure. 401/403/429 are answered by the RapidAPI marketplace before the request reaches the API
+    and carry only `message` (MarketplaceError shape).
+problem_types:
+- code: invalid_request
+  status: [400, 422]
+  title: Parameter rejected
+  detail: A parameter was rejected; the message names it (e.g. an unknown filter key lists the valid keys).
+  remediation: Fix the named parameter. A key not in the filter vocabulary is rejected so a typo never silently returns the wrong slice.
+- code: keyword_too_common
+  status: [422]
+  title: Keyword too common
+  detail: >-
+    A keyword appearing in more than ~130,000 postings (e.g. "excel", 38% of the corpus). Body carries
+    meta.estimated_matches and meta.limit.
+  remediation: Use job_titles for the role, or a rarer keyword. Narrowing by city/country does not help - the term scan comes first.
+- code: not_found
+  status: [404]
+  title: Posting not found
+  detail: No posting exists with that id.
+  remediation: Use an _id returned by /jobs/search.
+- code: busy
+  status: [503]
+  title: Service busy
+  detail: All database connections are in use; one frees up shortly. Can occur on any endpoint. Carries retry_after_seconds and Retry-After.
+  remediation: Wait Retry-After / retry_after_seconds and retry.
+- code: timeout
+  status: [503]
+  title: Search timeout
+  detail: On /jobs/search an expensive filter passed the deadline; the answer keeps computing so the retry lands on it. Carries retry_after_seconds.
+  remediation: Wait Retry-After / retry_after_seconds and retry. /jobs/insights has no deadline path - it answers 202 instead.
+marketplace_errors:
+  note: 401/403/429 originate at the RapidAPI marketplace, not the API. Body carries only `message`.
+  types:
+  - status: 401
+    meaning: No key.
+  - status: 403
+    meaning: A key without a subscription.
+  - status: 429
+    meaning: Marketplace rate limit; carries Retry-After.
+non_errors:
+  - status: 202
+    meaning: /jobs/insights slice not computed yet; call again after Retry-After (meta.computed_at on the eventual 200).
+  - status: 500
+    meaning: Unexpected failure; quote meta.request_id to support.

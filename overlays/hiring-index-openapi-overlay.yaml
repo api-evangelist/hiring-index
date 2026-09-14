@@ -1,0 +1,41 @@
+overlay: 1.0.0
+info:
+  title: Hiring Index - API Evangelist enrichment overlay
+  version: 1.0.0
+x-provenance:
+  generated: '2026-09-14'
+  method: generated
+  source: Enhancements over openapi/hiring-index-openapi.yaml captured by the API Evangelist enrichment pipeline. Non-mutating - the original spec is never edited.
+  extends: openapi/hiring-index-openapi.yaml
+actions:
+- target: $.info
+  description: Cross-link the enrichment artifacts derived from this contract.
+  update:
+    x-apievangelist:
+      packages: packages/hiring-index-packages.yml
+      mcp: mcp/hiring-index-mcp.yml
+      tool_crosswalk: mcp/hiring-index-tool-crosswalk.yml
+      plans: plans/hiring-index-plans-pricing.yml
+      rate_limits: rate-limits/hiring-index-rate-limits.yml
+      errors: errors/hiring-index-problem-types.yml
+      conventions: conventions/hiring-index-conventions.yml
+      data_model: data-model/hiring-index-data-model.yml
+      conformance: conformance/hiring-index-conformance.yml
+      lifecycle: lifecycle/hiring-index-lifecycle.yml
+- target: $.paths['/jobs/insights'].post
+  description: Flag the async 202 backpressure contract so agents plan a retry loop.
+  update:
+    x-async-backpressure:
+      code: 202
+      retry_header: Retry-After
+      body_field: retry_after_seconds
+      note: A not-yet-computed slice returns 202; call again after the delay. Each call counts against the plan.
+- target: $.paths['/jobs/search'].post
+  description: Note the shared filter vocabulary and result-metered billing.
+  update:
+    x-shared-filter: true
+    x-metered-unit: job (one posting in a response, or one fetched by id)
+- target: $.components.securitySchemes.rapidApiKey
+  description: Record that the same key drives the first-party MCP server via HIRINGINDEX_API_KEY.
+  update:
+    x-mcp-env: HIRINGINDEX_API_KEY

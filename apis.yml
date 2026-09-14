@@ -1,5 +1,14 @@
 name: Hiring Index
-description: Hiring and job-market data API.
+description: >-
+  Hiring Index is a jobs and labour-market data API that reads live postings straight from thirteen
+  applicant tracking systems - Workday, SmartRecruiters, Greenhouse, Workable, Lever, Ashby, Recruitee,
+  Teamtailor, Breezy, Personio, Hireology, PageUp and Zoho Recruit - behind one endpoint. Three
+  operations search postings by title, keyword, location, salary, work arrangement and posting age;
+  aggregate the same filter into salary percentiles, top employers and posting-age freshness; and
+  fetch a single posting by id. A field the source did not state is absent rather than guessed, dates
+  are the employer's own, and apply links point at the employer's ATS. A first-party MCP server and a
+  Python client ship alongside the API, which is metered by results on RapidAPI.
+image: https://hiringindex.org/assets/og/home.png
 url: https://raw.githubusercontent.com/api-evangelist/hiring-index/refs/heads/main/apis.yml
 created: '2026-09-14'
 modified: '2026-09-14'
@@ -9,26 +18,102 @@ tags:
 - Hiring Data
 - Labor Market
 - HR
+- Recruiting
+- Job Postings
+- Market Intelligence
+- Alternative Data
 apis:
 - name: Hiring Index API
+  description: >-
+    Three read-only endpoints over an index of live job postings read straight from thirteen
+    applicant tracking systems: search postings by a shared filter (title, keyword, location,
+    salary, work arrangement, posting age), aggregate the same filter into salary percentiles,
+    top employers and posting-age freshness, and fetch one posting by id. Metered by results on
+    RapidAPI, with a first-party stdio MCP server and Python client alongside it.
+  image: https://hiringindex.org/assets/og/home.png
   humanURL: https://hiringindex.org/docs
-  baseURL: https://hiringindex.org
+  baseURL: https://hiringindex.p.rapidapi.com
   tags:
   - Jobs
   - Hiring Data
   - Labor Market
   properties:
   - type: OpenAPI
+    url: openapi/hiring-index-openapi.yaml
+  - type: OpenAPI
     url: https://hiringindex.org/openapi.yaml
   - type: Documentation
     url: https://hiringindex.org/docs
+  - type: APIReference
+    url: https://hiringindex.org/docs
+  - type: MCPServer
+    url: mcp/hiring-index-mcp.yml
+  - type: ToolCrosswalk
+    url: mcp/hiring-index-tool-crosswalk.yml
+  - type: RateLimits
+    url: rate-limits/hiring-index-rate-limits.yml
+  - type: Plans
+    url: plans/hiring-index-plans-pricing.yml
+  - type: ErrorCatalog
+    url: errors/hiring-index-problem-types.yml
+  - type: Overlay
+    url: overlays/hiring-index-openapi-overlay.yaml
+  - type: Postman
+    url: https://www.postman.com/starnikovoleg-8266925/hiring-index/collection/58162257-0300c6dd-ec1a-4153-a94f-f98834ad91a3
 common:
+- type: DomainSecurity
+  url: security/hiring-index-domain-security.yml
+- type: Authentication
+  url: authentication/hiring-index-authentication.yml
+- type: Packages
+  url: packages/hiring-index-packages.yml
+- type: SDKs
+  url: packages/hiring-index-packages.yml
+- type: LLMsTxt
+  url: llms/hiring-index-llms.txt
+- type: Conventions
+  url: conventions/hiring-index-conventions.yml
+- type: DataModel
+  url: data-model/hiring-index-data-model.yml
+- type: Conformance
+  url: conformance/hiring-index-conformance.yml
+- type: Lifecycle
+  url: lifecycle/hiring-index-lifecycle.yml
+- type: AgentSkill
+  url: skills/_index.yml
 - type: Website
   url: https://hiringindex.org
+- type: DeveloperPortal
+  url: https://hiringindex.org/docs
+- type: GettingStarted
+  url: https://hiringindex.org/products/jobs-api
+- type: Pricing
+  url: https://hiringindex.org/pricing
+- type: SignUp
+  url: https://rapidapi.com/starnikovoleg/api/hiringindex
+- type: Blog
+  url: https://hiringindex.org/blog
+- type: Support
+  url: https://hiringindex.org/feedback
+- type: GitHubOrganization
+  url: https://github.com/starnikov-oleg-org
+- type: TermsOfService
+  url: https://hiringindex.org/legal/terms
+- type: PrivacyPolicy
+  url: https://hiringindex.org/legal/privacy
 maintainers:
 - FN: Hiring Index
+  email: hello@hiringindex.org
   url: https://hiringindex.org
 x-source:
   via: apis.io/add hiring-index-788aaf7e, parked domain_mismatch
   fetched: '2026-09-14'
-  note: 'Approved: RapidAPI base, but the OpenAPI is served first-party at hiringindex.org/openapi.yaml (200).'
+  note: >-
+    Approved: the OpenAPI is served first-party at hiringindex.org/openapi.yaml (200); its servers[]
+    and the docs both route calls to the RapidAPI listing host hiringindex.p.rapidapi.com, which is
+    therefore the real API baseURL (the marketing root hiringindex.org was a placeholder base).
+x-enrichment:
+  date: '2026-09-14'
+  status: enriched
+  artifacts_added: 19
+  pass: local-v3

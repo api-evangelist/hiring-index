@@ -1,0 +1,68 @@
+generated: '2026-09-14'
+method: searched
+source: https://hiringindex.org/docs and openapi/hiring-index-openapi.yaml
+summary: >-
+  A three-operation, read-only jobs data API on RapidAPI. One filter vocabulary is shared by search,
+  insights and posting-age; there is no write surface.
+auth:
+  style: api-key (header)
+  headers: [x-rapidapi-key, x-rapidapi-host]
+  host_header_value: hiringindex.p.rapidapi.com
+  note: Keys come from RapidAPI; the free tier needs nothing else. See authentication/hiring-index-authentication.yml.
+pagination:
+  style: page-number
+  request_params: [page, limit]
+  limit_max: 100
+  response_fields: [total_count, company_count, page, limit, total_pages]
+  note: >-
+    /jobs/search only. Anything you can search you can aggregate with the same filter on /jobs/insights,
+    which returns one aggregate object rather than pages.
+filtering:
+  filter_object: shared by /jobs/search and /jobs/insights
+  fields: [job_titles, keywords, cities, country_codes, remote_flag, employment_type, seniority, source_platforms, company_name, handles, salary, days_ago, page, limit]
+  rules:
+  - Every filter field is optional; an absent field means the filter is not applied.
+  - A key not in the vocabulary is rejected with 422 and the list of valid keys - a typo never silently returns the wrong slice.
+  - Terms shorter than three characters are rejected (the title index is a trigram index).
+  - country_codes are ISO 3166-1 alpha-2; source_platforms is one of thirteen ATS vendors.
+absent_field_semantics: >-
+  A value the source did not state is absent from the object - never null, never an empty string,
+  never a default. Test presence with `"salary" in job`. salary is an object of numbers or absent,
+  never "150k-200k".
+dates:
+  posted_at: Employer publication date as the ATS reports it (ISO-8601); absent when the source carries neither an absolute date nor a startDate.
+  posted_at_raw: The vendor's literal string (e.g. Workday's "Posted 30+ Days Ago").
+  first_seen_at: When this index first saw the posting (on every row).
+  fetched_at: When the index last read it. Sources are re-read once a day.
+request_id_tracing:
+  field: meta.request_id
+  note: Present on every response of this API; quote it in a support request. meta.took_ms is server time in ms.
+versioning:
+  scheme: OpenAPI info.version 1.0.0; no version in the path (the /v1 lives in the private origin URL the marketplace fronts).
+error_envelope:
+  shape: '{ error, message, meta.request_id }'
+  detail: See errors/hiring-index-problem-types.yml. Branch on `error`. 401/403/429 are marketplace errors carrying only `message`.
+rate_limit_signaling:
+  headers: [Retry-After]
+  body_field: retry_after_seconds
+  retryable_codes: [202, 429, 503]
+  detail: See rate-limits/hiring-index-rate-limits.yml.
+idempotency:
+  coverage: na
+  scope: []
+  note: >-
+    Read-only API. /jobs/search and /jobs/insights are POST only because the filter travels in a JSON
+    body; neither mutates state, and there is no write surface to protect with an Idempotency-Key.
+    Repeating any call is inherently safe. Insights results are cached and deterministic per slice
+    (meta.computed_at reports how old the aggregate is).
+reversibility:
+  applicable: na
+  note: No write, create, delete or mutating operation exists - nothing to reverse. All three operations are reads.
+dry_run_mode:
+  applicable: na
+  note: No mutating operation exists, so a dry-run mode is not applicable.
+cross_links:
+  errors: errors/hiring-index-problem-types.yml
+  rate_limits: rate-limits/hiring-index-rate-limits.yml
+  authentication: authentication/hiring-index-authentication.yml
+  data_model: data-model/hiring-index-data-model.yml

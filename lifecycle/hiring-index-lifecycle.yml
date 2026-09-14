@@ -1,0 +1,25 @@
+generated: '2026-09-14'
+method: searched
+source: https://hiringindex.org/docs, https://hiringindex.org/pricing, openapi/hiring-index-openapi.yaml
+versioning:
+  scheme: OpenAPI info.version
+  current_version: 1.0.0
+  in_path: false
+  note: No version segment in the public paths; the /v1 lives in the private origin the RapidAPI listing fronts.
+deprecation:
+  policy_published: false
+  sunset_headers: false
+  deprecated_operations: []
+  note: No deprecation or Sunset/Deprecation (RFC 8594) policy published; no operation is marked deprecated in the spec.
+status_page:
+  published: false
+  note: No dedicated status page found. Backpressure is surfaced inline via 202/429/503 with Retry-After rather than a status dashboard.
+sla:
+  published: false
+data_freshness:
+  cadence: Sources are re-read once a day; the API always returns the live index.
+  note: Every posting carries the employer's publication date (posted_at) and first_seen_at/fetched_at, so the age of held data is explicit.
+support:
+  contact: hello@hiringindex.org
+  response: A person replies within one business day (pricing page, Custom plan).
+  feedback: https://hiringindex.org/feedback

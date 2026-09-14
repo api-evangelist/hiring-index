@@ -1,0 +1,15 @@
+generated: '2026-09-14'
+method: derived
+source: openapi/hiring-index-openapi.yaml
+summary:
+  types:
+  - apiKey
+  api_key_in:
+  - header
+schemes:
+- name: rapidApiKey
+  type: apiKey
+  in: header
+  parameter: x-rapidapi-key
+  sources:
+  - openapi/hiring-index-openapi.yaml

@@ -1,0 +1,52 @@
+generated: '2026-09-14'
+method: derived
+source: openapi/hiring-index-openapi.yaml component schemas + https://hiringindex.org/docs object reference.
+note: >-
+  A flat, denormalised data model - the index intentionally carries no cross-entity foreign keys.
+  A posting names its employer and source ATS as strings, not id references, and a value the source
+  did not state is absent from the object rather than null. The only identifier is Job._id.
+entities:
+- name: Job
+  key: _id
+  description: One job posting read from an employer's ATS. Fields present only where the source stated them.
+  notable_fields: [_id, source_platform, title, company_name, city, region, country, country_code, remote_flag, employment_type, seniority, salary, salary_text, posted_at, posted_at_raw, first_seen_at, fetched_at, posting_url, apply_url, description]
+- name: Salary
+  description: Embedded object on a Job when disclosed - min, max, currency, period. About 4% of postings disclose one.
+  embedded_in: Job
+- name: SearchResponse
+  description: A page of Job rows plus totals and Meta.
+  contains: [Job, Meta]
+- name: InsightsResponse
+  description: Aggregates over a filter - Headline counts, Salary percentile slices per currency/period, Freshness, and value/count split buckets.
+  contains: [Headline, SalarySlice, Percentiles, Freshness, Bucket, CompanyBucket, InsightsGroup, Meta]
+- name: Meta
+  description: request_id + took_ms; present on every response.
+relationships:
+- from: SearchResponse
+  to: Job
+  type: has_many
+  via: jobs[]
+- from: Job
+  to: Salary
+  type: has_one
+  via: salary
+  optional: true
+- from: InsightsResponse
+  to: CompanyBucket
+  type: has_many
+  via: top_companies[]
+- from: InsightsResponse
+  to: SalarySlice
+  type: has_many
+  via: salary[]
+- from: InsightsResponse
+  to: Bucket
+  type: has_many
+  via: city_split / country_code_split / employment_type_split / remote_flag_split / seniority_split / platform_split
+identifiers:
+  job_id:
+    field: _id
+    note: Opaque base64-ish token (e.g. "Z3JlZW5ob3VzZXwuLi4"); the value GET /jobs/{id} takes.
+  enumerations:
+    source_platform: [workday, pageup, smartrecruiters, greenhouse, workable, lever, ashby, recruitee, teamtailor, breezy, zoho, personio, hireology]
+    country_code: ISO 3166-1 alpha-2

@@ -1,0 +1,25 @@
+generated: '2026-09-14'
+method: probed
+source: live DNS/TLS/HTTP probes of apis.yml + OpenAPI hosts
+hosts:
+- host: hiringindex.org
+  https: true
+  tls_version: TLSv1.3
+  cert_expires: Dec 13 18:00:21 2026 GMT
+  hsts: false
+- host: hiringindex.p.rapidapi.com
+  https: true
+  tls_version: TLSv1.2
+  cert_expires: Feb  3 23:59:59 2027 GMT
+  hsts: null
+domains:
+- domain: hiringindex.org
+  dnssec: false
+  caa: []
+  spf: true
+  dmarc: false
+- domain: rapidapi.com
+  dnssec: true
+  caa: []
+  spf: true
+  dmarc: false

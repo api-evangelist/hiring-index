@@ -1,0 +1,51 @@
+generated: '2026-09-14'
+method: derived
+source: >-
+  Derived by binding the published MCP tool list (mcp/hiring-index-mcp.yml, from
+  https://hiringindex.org/products/mcp-server) to the live REST OpenAPI
+  (openapi/hiring-index-openapi.yaml, 3 operations). The MCP server is closed-schema and stdio-only,
+  so tool inputSchemas are not introspectable remotely; each bound tool inherits its backing
+  operation's requestBody/parameters as its real inputSchema.
+purpose: >-
+  Make the MCP tool the first-class discovery unit and bind it to the REST operation that backs it.
+  All four tools share one filter vocabulary, so search, insights and posting-age are three
+  projections of the same filter object.
+surfaces:
+  rest_openapi: openapi/hiring-index-openapi.yaml   # 3 operations, gated by a RapidAPI key
+  mcp: local-stdio (npx -y hiringindex-mcp)         # no remote endpoint; tools/list answered locally
+  gated: rest requires an x-rapidapi-key; mcp requires HIRINGINDEX_API_KEY
+crosswalk:
+- tool: search_jobs
+  category: search
+  rest: [searchJobs]
+  binding: rest
+  confidence: high
+  note: POST /jobs/search; inputSchema is the SearchRequest filter object.
+- tool: job_market_insights
+  category: insights
+  rest: [jobInsights]
+  binding: rest
+  confidence: high
+  note: POST /jobs/insights; same filter object (InsightsRequest), aggregates instead of rows.
+- tool: get_job
+  category: job
+  rest: [getJob]
+  binding: rest
+  confidence: high
+  note: GET /jobs/{id}.
+- tool: posting_age_report
+  category: insights
+  rest: [jobInsights]
+  binding: rest
+  confidence: medium
+  note: >-
+    A specialised read of the insights `freshness` block (median_days_live, pct_last_7_days,
+    pct_over_60_days). No dedicated REST operation - the server projects it from /jobs/insights.
+mcp_only: []
+rest_only: []
+coverage:
+  mcp_tools: 4
+  rest_operations: 3
+  bound_high: 3
+  bound_medium: 1
+  unbound: 0
