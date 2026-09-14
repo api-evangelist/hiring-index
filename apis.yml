@@ -1,0 +1,34 @@
+name: Hiring Index
+description: Hiring and job-market data API.
+url: https://raw.githubusercontent.com/api-evangelist/hiring-index/refs/heads/main/apis.yml
+created: '2026-09-14'
+modified: '2026-09-14'
+specificationVersion: '0.21'
+tags:
+- Jobs
+- Hiring Data
+- Labor Market
+- HR
+apis:
+- name: Hiring Index API
+  humanURL: https://hiringindex.org/docs
+  baseURL: https://hiringindex.org
+  tags:
+  - Jobs
+  - Hiring Data
+  - Labor Market
+  properties:
+  - type: OpenAPI
+    url: https://hiringindex.org/openapi.yaml
+  - type: Documentation
+    url: https://hiringindex.org/docs
+common:
+- type: Website
+  url: https://hiringindex.org
+maintainers:
+- FN: Hiring Index
+  url: https://hiringindex.org
+x-source:
+  via: apis.io/add hiring-index-788aaf7e, parked domain_mismatch
+  fetched: '2026-09-14'
+  note: 'Approved: RapidAPI base, but the OpenAPI is served first-party at hiringindex.org/openapi.yaml (200).'
