@@ -14,6 +14,15 @@ created: '2026-09-14'
 modified: '2026-09-14'
 specificationVersion: '0.21'
 tags:
+- Job
+- Hiring Data
+- Labor Market
+- HR
+- Recruiting
+- Job Postings
+- Market Intelligence
+- Alternative Data
+tags_raw:
 - Jobs
 - Hiring Data
 - Labor Market
@@ -23,31 +32,20 @@ tags:
 - Market Intelligence
 - Alternative Data
 apis:
-- name: Hiring Index API
-  description: >-
-    Three read-only endpoints over an index of live job postings read straight from thirteen
-    applicant tracking systems: search postings by a shared filter (title, keyword, location,
-    salary, work arrangement, posting age), aggregate the same filter into salary percentiles,
-    top employers and posting-age freshness, and fetch one posting by id. Metered by results on
-    RapidAPI, with a first-party stdio MCP server and Python client alongside it.
-  image: https://hiringindex.org/assets/og/home.png
+- aid: hiring-index:hiring-index-insights-api
+  name: Hiring Index Insights API
+  description: Aggregates over the same filter - the thing no one else in the category ships
   humanURL: https://hiringindex.org/docs
   baseURL: https://hiringindex.p.rapidapi.com
   tags:
-  - Jobs
-  - Hiring Data
-  - Labor Market
+  - insights
   properties:
   - type: OpenAPI
-    url: openapi/hiring-index-openapi.yaml
-  - type: OpenAPI
-    url: https://hiringindex.org/openapi.yaml
+    url: openapi/hiring-index-insights-api-openapi.yml
   - type: Documentation
     url: https://hiringindex.org/docs
   - type: APIReference
     url: https://hiringindex.org/docs
-  - type: MCPServer
-    url: mcp/hiring-index-mcp.yml
   - type: ToolCrosswalk
     url: mcp/hiring-index-tool-crosswalk.yml
   - type: RateLimits
@@ -56,11 +54,64 @@ apis:
     url: plans/hiring-index-plans-pricing.yml
   - type: ErrorCatalog
     url: errors/hiring-index-problem-types.yml
-  - type: Overlay
-    url: overlays/hiring-index-openapi-overlay.yaml
   - type: Postman
-    url: https://www.postman.com/starnikovoleg-8266925/hiring-index/collection/58162257-0300c6dd-ec1a-4153-a94f-f98834ad91a3
+    url: >-
+      https://www.postman.com/starnikovoleg-8266925/hiring-index/collection/58162257-0300c6dd-ec1a-4153-a94f-f98834ad91a3
+- aid: hiring-index:hiring-index-job-api
+  name: Hiring Index Job API
+  description: A single job posting by id
+  humanURL: https://hiringindex.org/docs
+  baseURL: https://hiringindex.p.rapidapi.com
+  tags:
+  - job
+  properties:
+  - type: OpenAPI
+    url: openapi/hiring-index-job-api-openapi.yml
+  - type: Documentation
+    url: https://hiringindex.org/docs
+  - type: APIReference
+    url: https://hiringindex.org/docs
+  - type: ToolCrosswalk
+    url: mcp/hiring-index-tool-crosswalk.yml
+  - type: RateLimits
+    url: rate-limits/hiring-index-rate-limits.yml
+  - type: Plans
+    url: plans/hiring-index-plans-pricing.yml
+  - type: ErrorCatalog
+    url: errors/hiring-index-problem-types.yml
+  - type: Postman
+    url: >-
+      https://www.postman.com/starnikovoleg-8266925/hiring-index/collection/58162257-0300c6dd-ec1a-4153-a94f-f98834ad91a3
+- aid: hiring-index:hiring-index-search-api
+  name: Hiring Index Search API
+  description: Paged job search over a filter
+  humanURL: https://hiringindex.org/docs
+  baseURL: https://hiringindex.p.rapidapi.com
+  tags:
+  - search
+  properties:
+  - type: OpenAPI
+    url: openapi/hiring-index-search-api-openapi.yml
+  - type: Documentation
+    url: https://hiringindex.org/docs
+  - type: APIReference
+    url: https://hiringindex.org/docs
+  - type: ToolCrosswalk
+    url: mcp/hiring-index-tool-crosswalk.yml
+  - type: RateLimits
+    url: rate-limits/hiring-index-rate-limits.yml
+  - type: Plans
+    url: plans/hiring-index-plans-pricing.yml
+  - type: ErrorCatalog
+    url: errors/hiring-index-problem-types.yml
+  - type: Postman
+    url: >-
+      https://www.postman.com/starnikovoleg-8266925/hiring-index/collection/58162257-0300c6dd-ec1a-4153-a94f-f98834ad91a3
 common:
+- type: MCPServer
+  url: mcp/hiring-index-mcp.yml
+- type: Overlay
+  url: overlays/hiring-index-openapi-overlay.yaml
 - type: DomainSecurity
   url: security/hiring-index-domain-security.yml
 - type: Authentication
