@@ -17,7 +17,7 @@ tags:
 - Job
 - Hiring Data
 - Labor Market
-- HR
+- Human Resources
 - Recruiting
 - Job Postings
 - Market Intelligence
@@ -38,6 +38,8 @@ apis:
   humanURL: https://hiringindex.org/docs
   baseURL: https://hiringindex.p.rapidapi.com
   tags:
+  - Insights
+  tags_raw:
   - insights
   properties:
   - type: OpenAPI
@@ -63,6 +65,8 @@ apis:
   humanURL: https://hiringindex.org/docs
   baseURL: https://hiringindex.p.rapidapi.com
   tags:
+  - Job
+  tags_raw:
   - job
   properties:
   - type: OpenAPI
@@ -88,6 +92,8 @@ apis:
   humanURL: https://hiringindex.org/docs
   baseURL: https://hiringindex.p.rapidapi.com
   tags:
+  - Search
+  tags_raw:
   - search
   properties:
   - type: OpenAPI
