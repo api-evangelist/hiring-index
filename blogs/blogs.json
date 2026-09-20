@@ -1,0 +1,14 @@
+{
+  "repo": "hiring-index",
+  "feeds": [
+    {
+      "source": "https://rapidapi.com/starnikovoleg/api/hiringindex",
+      "feed_url": "https://rapidapi.com/starnikovoleg/api/hiringindex",
+      "title": "",
+      "saved": 0,
+      "method": "none"
+    }
+  ],
+  "post_count": 0,
+  "fetched": "2026-09-19T20:17:39Z"
+}
