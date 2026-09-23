@@ -1,0 +1,26 @@
+{
+  "provider": "hiring-index",
+  "sources": [
+    "_original/hiring-index-openapi.yaml"
+  ],
+  "outputs": [
+    "hiring-index-insights-api-openapi.yml",
+    "hiring-index-job-api-openapi.yml",
+    "hiring-index-search-api-openapi.yml"
+  ],
+  "archived": [],
+  "errors": [],
+  "warnings": [],
+  "notes": [
+    "1 archived document(s) dropped as subsets of other archived documents",
+    "sourced from openapi/_original/ (1 archived document(s)); previously refined output at the top level was skipped rather than re-split",
+    "hiring-index-openapi.yaml: upgraded openapi 3.0.3 -> OpenAPI 3.2.0",
+    "apis.yml register: already-registered"
+  ],
+  "skipped": [
+    "_original/hiring-index-openapi_2.yaml: archived document superseded by a larger archived document",
+    "hiring-index-insights-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "hiring-index-job-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "hiring-index-search-api-openapi.yml: previously refined output, superseded by openapi/_original/"
+  ]
+}
