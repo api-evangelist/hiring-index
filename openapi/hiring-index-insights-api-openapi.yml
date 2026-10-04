@@ -337,90 +337,48 @@ paths:
         '503':
           $ref: '#/components/responses/Busy'
 components:
-  responses:
-    Unauthorized:
-      description: 'Missing or invalid key. Answered by the marketplace before the request
-
-        reaches this API, in its own shape — `message` only, no `error`.
-
-        '
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MarketplaceError'
-    Busy:
-      description: Capacity exhausted for the moment (`busy`), or the filter did not finish inside the statement deadline (`timeout`). Retry after `retry_after_seconds`, or narrow the filter.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    Unprocessable:
-      description: 'The filter is well-formed JSON but cannot be run. `error` is
-
-        `invalid_request` (an unknown key or a malformed value — `message` names
-
-        it and lists the valid keys) or `keyword_too_common` (a `keywords` term
-
-        matches too many postings — `meta.estimated_matches` and `meta.limit` say
-
-        by how much).
-
-        '
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            unknownKey:
-              summary: A key the API does not have
-              value:
-                error: invalid_request
-                message: '''location_types'' is not a filter key. The keys are: cities, company_name, country_codes, days_ago, employment_type, handles, job_titles, keywords, limit, page, remote_flag, salary, seniority, source_platforms'
-                meta:
-                  request_id: de1bb62e86aa15134ec156b64dca09b8
-                  took_ms: 0.16
-            keywordTooCommon:
-              summary: '{"keywords": ["experience"]}'
-              value:
-                error: keyword_too_common
-                message: '''experience'' appears in about 64% of postings (~1,123,068 matches); keyword aggregates are computed for terms under 130,000 matches. Search the role with job_titles, or use a rarer keyword -- narrowing by city, country or employment type does not help: the term scan comes first.'
-                meta:
-                  term: experience
-                  estimated_matches: 1123068
-                  limit: 130000
-                  request_id: 32c3863fafb59454773a444e7e782c7f
-                  took_ms: 1.48
-    RateLimited:
-      description: Plan quota or rate limit exceeded. Answered by the marketplace; see its rate-limit headers.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MarketplaceError'
-    BadRequest:
-      description: No body, or a body that is not a JSON object
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            error: invalid_request
-            message: the request has no body. Send a JSON object; {} is the filter that matches everything.
-            meta:
-              request_id: 7930fd0adc27ed3a6cde6a53ce338d2c
-              took_ms: 0.07
-    Forbidden:
-      description: 'A valid key without a subscription to this API. Answered by the
-
-        marketplace, `message` only.
-
-        '
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MarketplaceError'
-          example:
-            message: You are not subscribed to this API.
   schemas:
+    InsightsRequest:
+      description: The shared filter plus the grouping options. `page` and `limit` are rejected here.
+      allOf:
+      - $ref: '#/components/schemas/JobFilter'
+      - type: object
+        properties:
+          group_by:
+            type: string
+            enum:
+            - city
+            - city_only
+            - country_code
+            description: 'Return one block per location instead of one for the whole slice.
+
+              `city` groups by city and country code, `city_only` by city name
+
+              alone, `country_code` by country. A string, not an array. Send the
+
+              locations to group in `cities` or `country_codes`.
+
+              '
+          city_aliases:
+            type: object
+            additionalProperties:
+              type: string
+            description: 'With `group_by: city` or `city_only`, folds alternative spellings into one group:
+
+              each key is a spelling listed in `cities`, its value the city whose
+
+              group it joins.
+
+              '
+            example:
+              Bangalore: Bengaluru
+          min_rows:
+            type: integer
+            minimum: 0
+            description: With `group_by`, leave out groups with fewer rows than this. `0` returns every group.
+          percentiles:
+            type: boolean
+            description: With `group_by`, add p25, p75 and p90 of posting age to each group's `freshness`.
     JobFilter:
       type: object
       description: 'The filter `/jobs/search` and `/jobs/insights` share. Sent as the request
@@ -601,6 +559,57 @@ components:
             limit:
               type: integer
               description: '`keyword_too_common` only: the ceiling a keyword must stay under.'
+    CompanyBucket:
+      type: object
+      properties:
+        company_name:
+          type: string
+          example: OpenAI
+        count:
+          type: integer
+          example: 124
+    SalarySlice:
+      type: object
+      description: 'Pay percentiles for one currency and pay period. `min` describes the lower
+
+        ends of the advertised bands, `max` the upper ends. `period` is the
+
+        vendor''s spelling and is absent when the source gave none.
+
+        '
+      properties:
+        currency:
+          type: string
+          example: USD
+        period:
+          type: string
+          example: 1 YEAR
+        count:
+          type: integer
+          description: Disclosed salaries in this slice.
+          example: 635
+        min:
+          $ref: '#/components/schemas/Percentiles'
+        max:
+          $ref: '#/components/schemas/Percentiles'
+    MarketplaceError:
+      type: object
+      description: Shape of 401, 403 and 429, which the marketplace answers before the request reaches this API.
+      properties:
+        message:
+          type: string
+    Meta:
+      type: object
+      description: Present on every response of this API.
+      properties:
+        request_id:
+          type: string
+          description: Quote it when you contact support.
+          example: be8374ea54b3756c61e55409f09e8075
+        took_ms:
+          type: number
+          description: Server time in milliseconds — tells our part from the network's.
+          example: 62.35
     SalaryFilter:
       type: object
       description: 'Filter on the advertised pay band; only postings that disclose a salary
@@ -664,41 +673,69 @@ components:
             can pay me this" means.
 
             '
-    SalarySlice:
+    InsightsGroup:
       type: object
-      description: 'Pay percentiles for one currency and pay period. `min` describes the lower
+      description: 'The blocks for one group. Carries the group''s key (`city` and/or
 
-        ends of the advertised bands, `max` the upper ends. `period` is the
+        `country_code`, lower-cased), the counts of `Headline` except `job_count`
 
-        vendor''s spelling and is absent when the source gave none.
+        and `company_count`, and the splits. `salary` is absent when no slice in
+
+        the group reaches 30 disclosed salaries.
 
         '
       properties:
-        currency:
+        city:
           type: string
-          example: USD
-        period:
+        country_code:
           type: string
-          example: 1 YEAR
-        count:
+          example: nl
+        row_count:
           type: integer
-          description: Disclosed salaries in this slice.
-          example: 635
-        min:
-          $ref: '#/components/schemas/Percentiles'
-        max:
-          $ref: '#/components/schemas/Percentiles'
-    Percentiles:
-      type: object
-      properties:
-        p25:
-          type: number
-        p50:
-          type: number
-        p75:
-          type: number
-        p90:
-          type: number
+        with_salary:
+          type: integer
+        new_this_week:
+          type: integer
+        with_posted_at:
+          type: integer
+        with_description:
+          type: integer
+        with_detail:
+          type: integer
+        top_companies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bucket'
+        city_split:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bucket'
+        country_code_split:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bucket'
+        employment_type_split:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bucket'
+        remote_flag_split:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bucket'
+        seniority_split:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bucket'
+        platform_split:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bucket'
+        freshness:
+          $ref: '#/components/schemas/Freshness'
+        salary:
+          type: array
+          items:
+            $ref: '#/components/schemas/SalarySlice'
     Headline:
       type: object
       properties:
@@ -734,6 +771,52 @@ components:
           type: integer
           description: Rows first seen by this index in the last seven days.
           example: 59
+    Percentiles:
+      type: object
+      properties:
+        p25:
+          type: number
+        p50:
+          type: number
+        p75:
+          type: number
+        p90:
+          type: number
+    Bucket:
+      type: object
+      description: One value of a split and the number of rows carrying it.
+      properties:
+        value:
+          type: string
+          example: San Francisco
+        count:
+          type: integer
+          example: 1053
+    Freshness:
+      type: object
+      description: Age of the postings in days, counted from `posted_at`; rows without a date are left out.
+      properties:
+        count:
+          type: integer
+          description: Rows with a publication date.
+        median_days_live:
+          type: number
+          example: 98
+        pct_last_7_days:
+          type: number
+          example: 5.6
+        pct_over_60_days:
+          type: number
+          example: 63.1
+        p25:
+          type: number
+          description: 'Grouped mode with `percentiles: true` only.'
+        p75:
+          type: number
+          description: 'Grouped mode with `percentiles: true` only.'
+        p90:
+          type: number
+          description: 'Grouped mode with `percentiles: true` only.'
     InsightsResponse:
       type: object
       description: 'Without `group_by`: `headline` through `handle_split` at the top level.
@@ -815,172 +898,89 @@ components:
             $ref: '#/components/schemas/InsightsGroup'
         meta:
           $ref: '#/components/schemas/Meta'
-    Freshness:
-      type: object
-      description: Age of the postings in days, counted from `posted_at`; rows without a date are left out.
-      properties:
-        count:
-          type: integer
-          description: Rows with a publication date.
-        median_days_live:
-          type: number
-          example: 98
-        pct_last_7_days:
-          type: number
-          example: 5.6
-        pct_over_60_days:
-          type: number
-          example: 63.1
-        p25:
-          type: number
-          description: 'Grouped mode with `percentiles: true` only.'
-        p75:
-          type: number
-          description: 'Grouped mode with `percentiles: true` only.'
-        p90:
-          type: number
-          description: 'Grouped mode with `percentiles: true` only.'
-    InsightsRequest:
-      description: The shared filter plus the grouping options. `page` and `limit` are rejected here.
-      allOf:
-      - $ref: '#/components/schemas/JobFilter'
-      - type: object
-        properties:
-          group_by:
-            type: string
-            enum:
-            - city
-            - city_only
-            - country_code
-            description: 'Return one block per location instead of one for the whole slice.
+  responses:
+    Forbidden:
+      description: 'A valid key without a subscription to this API. Answered by the
 
-              `city` groups by city and country code, `city_only` by city name
-
-              alone, `country_code` by country. A string, not an array. Send the
-
-              locations to group in `cities` or `country_codes`.
-
-              '
-          city_aliases:
-            type: object
-            additionalProperties:
-              type: string
-            description: 'With `group_by: city` or `city_only`, folds alternative spellings into one group:
-
-              each key is a spelling listed in `cities`, its value the city whose
-
-              group it joins.
-
-              '
-            example:
-              Bangalore: Bengaluru
-          min_rows:
-            type: integer
-            minimum: 0
-            description: With `group_by`, leave out groups with fewer rows than this. `0` returns every group.
-          percentiles:
-            type: boolean
-            description: With `group_by`, add p25, p75 and p90 of posting age to each group's `freshness`.
-    InsightsGroup:
-      type: object
-      description: 'The blocks for one group. Carries the group''s key (`city` and/or
-
-        `country_code`, lower-cased), the counts of `Headline` except `job_count`
-
-        and `company_count`, and the splits. `salary` is absent when no slice in
-
-        the group reaches 30 disclosed salaries.
+        marketplace, `message` only.
 
         '
-      properties:
-        city:
-          type: string
-        country_code:
-          type: string
-          example: nl
-        row_count:
-          type: integer
-        with_salary:
-          type: integer
-        new_this_week:
-          type: integer
-        with_posted_at:
-          type: integer
-        with_description:
-          type: integer
-        with_detail:
-          type: integer
-        top_companies:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bucket'
-        city_split:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bucket'
-        country_code_split:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bucket'
-        employment_type_split:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bucket'
-        remote_flag_split:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bucket'
-        seniority_split:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bucket'
-        platform_split:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bucket'
-        freshness:
-          $ref: '#/components/schemas/Freshness'
-        salary:
-          type: array
-          items:
-            $ref: '#/components/schemas/SalarySlice'
-    Meta:
-      type: object
-      description: Present on every response of this API.
-      properties:
-        request_id:
-          type: string
-          description: Quote it when you contact support.
-          example: be8374ea54b3756c61e55409f09e8075
-        took_ms:
-          type: number
-          description: Server time in milliseconds — tells our part from the network's.
-          example: 62.35
-    CompanyBucket:
-      type: object
-      properties:
-        company_name:
-          type: string
-          example: OpenAI
-        count:
-          type: integer
-          example: 124
-    Bucket:
-      type: object
-      description: One value of a split and the number of rows carrying it.
-      properties:
-        value:
-          type: string
-          example: San Francisco
-        count:
-          type: integer
-          example: 1053
-    MarketplaceError:
-      type: object
-      description: Shape of 401, 403 and 429, which the marketplace answers before the request reaches this API.
-      properties:
-        message:
-          type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MarketplaceError'
+          example:
+            message: You are not subscribed to this API.
+    BadRequest:
+      description: No body, or a body that is not a JSON object
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: invalid_request
+            message: the request has no body. Send a JSON object; {} is the filter that matches everything.
+            meta:
+              request_id: 7930fd0adc27ed3a6cde6a53ce338d2c
+              took_ms: 0.07
+    Unprocessable:
+      description: 'The filter is well-formed JSON but cannot be run. `error` is
+
+        `invalid_request` (an unknown key or a malformed value — `message` names
+
+        it and lists the valid keys) or `keyword_too_common` (a `keywords` term
+
+        matches too many postings — `meta.estimated_matches` and `meta.limit` say
+
+        by how much).
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            unknownKey:
+              summary: A key the API does not have
+              value:
+                error: invalid_request
+                message: '''location_types'' is not a filter key. The keys are: cities, company_name, country_codes, days_ago, employment_type, handles, job_titles, keywords, limit, page, remote_flag, salary, seniority, source_platforms'
+                meta:
+                  request_id: de1bb62e86aa15134ec156b64dca09b8
+                  took_ms: 0.16
+            keywordTooCommon:
+              summary: '{"keywords": ["experience"]}'
+              value:
+                error: keyword_too_common
+                message: '''experience'' appears in about 64% of postings (~1,123,068 matches); keyword aggregates are computed for terms under 130,000 matches. Search the role with job_titles, or use a rarer keyword -- narrowing by city, country or employment type does not help: the term scan comes first.'
+                meta:
+                  term: experience
+                  estimated_matches: 1123068
+                  limit: 130000
+                  request_id: 32c3863fafb59454773a444e7e782c7f
+                  took_ms: 1.48
+    Busy:
+      description: Capacity exhausted for the moment (`busy`), or the filter did not finish inside the statement deadline (`timeout`). Retry after `retry_after_seconds`, or narrow the filter.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Plan quota or rate limit exceeded. Answered by the marketplace; see its rate-limit headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MarketplaceError'
+    Unauthorized:
+      description: 'Missing or invalid key. Answered by the marketplace before the request
+
+        reaches this API, in its own shape — `message` only, no `error`.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MarketplaceError'
   securitySchemes:
     rapidApiKey:
       type: apiKey

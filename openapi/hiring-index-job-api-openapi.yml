@@ -101,16 +101,6 @@ paths:
           $ref: '#/components/responses/Busy'
 components:
   responses:
-    Unauthorized:
-      description: 'Missing or invalid key. Answered by the marketplace before the request
-
-        reaches this API, in its own shape — `message` only, no `error`.
-
-        '
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MarketplaceError'
     Busy:
       description: Capacity exhausted for the moment (`busy`), or the filter did not finish inside the statement deadline (`timeout`). Retry after `retry_after_seconds`, or narrow the filter.
       content:
@@ -129,6 +119,16 @@ components:
             $ref: '#/components/schemas/MarketplaceError'
           example:
             message: You are not subscribed to this API.
+    Unauthorized:
+      description: 'Missing or invalid key. Answered by the marketplace before the request
+
+        reaches this API, in its own shape — `message` only, no `error`.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MarketplaceError'
     RateLimited:
       description: Plan quota or rate limit exceeded. Answered by the marketplace; see its rate-limit headers.
       content:
@@ -136,45 +136,12 @@ components:
           schema:
             $ref: '#/components/schemas/MarketplaceError'
   schemas:
-    Error:
+    MarketplaceError:
       type: object
-      description: Every error this API itself returns. Branch on `error`, not on `message`.
-      required:
-      - error
-      - message
+      description: Shape of 401, 403 and 429, which the marketplace answers before the request reaches this API.
       properties:
-        error:
-          type: string
-          description: Short code for the client to branch on.
-          example: invalid_request
-          enum:
-          - invalid_request
-          - keyword_too_common
-          - not_found
-          - busy
-          - timeout
         message:
           type: string
-          description: Human-readable explanation; wording may change.
-        retry_after_seconds:
-          type: integer
-          description: '`busy` and `timeout` only: how long to wait before retrying — 1 second for `busy`, 2 for `timeout`.'
-        meta:
-          type: object
-          properties:
-            request_id:
-              type: string
-            took_ms:
-              type: number
-            term:
-              type: string
-              description: '`keyword_too_common` only: the keyword that was refused.'
-            estimated_matches:
-              type: integer
-              description: '`keyword_too_common` only: roughly how many postings mention it.'
-            limit:
-              type: integer
-              description: '`keyword_too_common` only: the ceiling a keyword must stay under.'
     Job:
       type: object
       description: 'One posting. A field the source did not state is absent — never null,
@@ -384,12 +351,45 @@ components:
         confidence:
           type: string
           example: stated
-    MarketplaceError:
+    Error:
       type: object
-      description: Shape of 401, 403 and 429, which the marketplace answers before the request reaches this API.
+      description: Every error this API itself returns. Branch on `error`, not on `message`.
+      required:
+      - error
+      - message
       properties:
+        error:
+          type: string
+          description: Short code for the client to branch on.
+          example: invalid_request
+          enum:
+          - invalid_request
+          - keyword_too_common
+          - not_found
+          - busy
+          - timeout
         message:
           type: string
+          description: Human-readable explanation; wording may change.
+        retry_after_seconds:
+          type: integer
+          description: '`busy` and `timeout` only: how long to wait before retrying — 1 second for `busy`, 2 for `timeout`.'
+        meta:
+          type: object
+          properties:
+            request_id:
+              type: string
+            took_ms:
+              type: number
+            term:
+              type: string
+              description: '`keyword_too_common` only: the keyword that was refused.'
+            estimated_matches:
+              type: integer
+              description: '`keyword_too_common` only: roughly how many postings mention it.'
+            limit:
+              type: integer
+              description: '`keyword_too_common` only: the ceiling a keyword must stay under.'
   securitySchemes:
     rapidApiKey:
       type: apiKey

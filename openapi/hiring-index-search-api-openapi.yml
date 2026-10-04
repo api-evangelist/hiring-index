@@ -188,145 +188,19 @@ paths:
         '503':
           $ref: '#/components/responses/Busy'
 components:
-  responses:
-    Unauthorized:
-      description: 'Missing or invalid key. Answered by the marketplace before the request
-
-        reaches this API, in its own shape — `message` only, no `error`.
-
-        '
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MarketplaceError'
-    Busy:
-      description: Capacity exhausted for the moment (`busy`), or the filter did not finish inside the statement deadline (`timeout`). Retry after `retry_after_seconds`, or narrow the filter.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    Unprocessable:
-      description: 'The filter is well-formed JSON but cannot be run. `error` is
-
-        `invalid_request` (an unknown key or a malformed value — `message` names
-
-        it and lists the valid keys) or `keyword_too_common` (a `keywords` term
-
-        matches too many postings — `meta.estimated_matches` and `meta.limit` say
-
-        by how much).
-
-        '
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            unknownKey:
-              summary: A key the API does not have
-              value:
-                error: invalid_request
-                message: '''location_types'' is not a filter key. The keys are: cities, company_name, country_codes, days_ago, employment_type, handles, job_titles, keywords, limit, page, remote_flag, salary, seniority, source_platforms'
-                meta:
-                  request_id: de1bb62e86aa15134ec156b64dca09b8
-                  took_ms: 0.16
-            keywordTooCommon:
-              summary: '{"keywords": ["experience"]}'
-              value:
-                error: keyword_too_common
-                message: '''experience'' appears in about 64% of postings (~1,123,068 matches); keyword aggregates are computed for terms under 130,000 matches. Search the role with job_titles, or use a rarer keyword -- narrowing by city, country or employment type does not help: the term scan comes first.'
-                meta:
-                  term: experience
-                  estimated_matches: 1123068
-                  limit: 130000
-                  request_id: 32c3863fafb59454773a444e7e782c7f
-                  took_ms: 1.48
-    BadRequest:
-      description: No body, or a body that is not a JSON object
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            error: invalid_request
-            message: the request has no body. Send a JSON object; {} is the filter that matches everything.
-            meta:
-              request_id: 7930fd0adc27ed3a6cde6a53ce338d2c
-              took_ms: 0.07
-    Forbidden:
-      description: 'A valid key without a subscription to this API. Answered by the
-
-        marketplace, `message` only.
-
-        '
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MarketplaceError'
-          example:
-            message: You are not subscribed to this API.
-    RateLimited:
-      description: Plan quota or rate limit exceeded. Answered by the marketplace; see its rate-limit headers.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/MarketplaceError'
   schemas:
-    SearchRequest:
-      description: The shared filter plus paging.
-      allOf:
-      - $ref: '#/components/schemas/JobFilter'
-      - type: object
-        properties:
-          page:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 1
-          limit:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 25
-    Error:
+    Meta:
       type: object
-      description: Every error this API itself returns. Branch on `error`, not on `message`.
-      required:
-      - error
-      - message
+      description: Present on every response of this API.
       properties:
-        error:
+        request_id:
           type: string
-          description: Short code for the client to branch on.
-          example: invalid_request
-          enum:
-          - invalid_request
-          - keyword_too_common
-          - not_found
-          - busy
-          - timeout
-        message:
-          type: string
-          description: Human-readable explanation; wording may change.
-        retry_after_seconds:
-          type: integer
-          description: '`busy` and `timeout` only: how long to wait before retrying — 1 second for `busy`, 2 for `timeout`.'
-        meta:
-          type: object
-          properties:
-            request_id:
-              type: string
-            took_ms:
-              type: number
-            term:
-              type: string
-              description: '`keyword_too_common` only: the keyword that was refused.'
-            estimated_matches:
-              type: integer
-              description: '`keyword_too_common` only: roughly how many postings mention it.'
-            limit:
-              type: integer
-              description: '`keyword_too_common` only: the ceiling a keyword must stay under.'
+          description: Quote it when you contact support.
+          example: be8374ea54b3756c61e55409f09e8075
+        took_ms:
+          type: number
+          description: Server time in milliseconds — tells our part from the network's.
+          example: 62.35
     JobFilter:
       type: object
       description: 'The filter `/jobs/search` and `/jobs/insights` share. Sent as the request
@@ -468,6 +342,59 @@ components:
 
             '
           example: 7
+    MarketplaceError:
+      type: object
+      description: Shape of 401, 403 and 429, which the marketplace answers before the request reaches this API.
+      properties:
+        message:
+          type: string
+    SearchResponse:
+      type: object
+      required:
+      - jobs
+      - total_count
+      - company_count
+      - page
+      - limit
+      - total_pages
+      - meta
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Job'
+        total_count:
+          type: integer
+          description: Rows matching the filter.
+          example: 207
+        company_count:
+          type: integer
+          description: Distinct named employers among them; rows without `company_name` are not counted.
+          example: 33
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total_pages:
+          type: integer
+          description: Pages reachable at this `limit`, never more than 100.
+          example: 11
+        pages_truncated:
+          type: object
+          description: Present only when the filter matches more rows than 100 pages reach.
+          properties:
+            reachable_rows:
+              type: integer
+              example: 2000
+            pages_if_unbounded:
+              type: integer
+              example: 33113
+            why:
+              type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
     SalaryFilter:
       type: object
       description: 'Filter on the advertised pay band; only postings that disclose a salary
@@ -708,65 +635,6 @@ components:
         content_hash:
           type: string
           description: Hash of the posting content — changes when the posting changes.
-    SearchResponse:
-      type: object
-      required:
-      - jobs
-      - total_count
-      - company_count
-      - page
-      - limit
-      - total_pages
-      - meta
-      properties:
-        jobs:
-          type: array
-          items:
-            $ref: '#/components/schemas/Job'
-        total_count:
-          type: integer
-          description: Rows matching the filter.
-          example: 207
-        company_count:
-          type: integer
-          description: Distinct named employers among them; rows without `company_name` are not counted.
-          example: 33
-        page:
-          type: integer
-          example: 1
-        limit:
-          type: integer
-          example: 20
-        total_pages:
-          type: integer
-          description: Pages reachable at this `limit`, never more than 100.
-          example: 11
-        pages_truncated:
-          type: object
-          description: Present only when the filter matches more rows than 100 pages reach.
-          properties:
-            reachable_rows:
-              type: integer
-              example: 2000
-            pages_if_unbounded:
-              type: integer
-              example: 33113
-            why:
-              type: string
-        meta:
-          $ref: '#/components/schemas/Meta'
-    Meta:
-      type: object
-      description: Present on every response of this API.
-      properties:
-        request_id:
-          type: string
-          description: Quote it when you contact support.
-          example: be8374ea54b3756c61e55409f09e8075
-        took_ms:
-          type: number
-          description: Server time in milliseconds — tells our part from the network's.
-          example: 62.35
     Salary:
       type: object
       description: 'The pay the employer advertises, as the employer states it: numbers in
@@ -799,12 +667,144 @@ components:
         confidence:
           type: string
           example: stated
-    MarketplaceError:
+    Error:
       type: object
-      description: Shape of 401, 403 and 429, which the marketplace answers before the request reaches this API.
+      description: Every error this API itself returns. Branch on `error`, not on `message`.
+      required:
+      - error
+      - message
       properties:
+        error:
+          type: string
+          description: Short code for the client to branch on.
+          example: invalid_request
+          enum:
+          - invalid_request
+          - keyword_too_common
+          - not_found
+          - busy
+          - timeout
         message:
           type: string
+          description: Human-readable explanation; wording may change.
+        retry_after_seconds:
+          type: integer
+          description: '`busy` and `timeout` only: how long to wait before retrying — 1 second for `busy`, 2 for `timeout`.'
+        meta:
+          type: object
+          properties:
+            request_id:
+              type: string
+            took_ms:
+              type: number
+            term:
+              type: string
+              description: '`keyword_too_common` only: the keyword that was refused.'
+            estimated_matches:
+              type: integer
+              description: '`keyword_too_common` only: roughly how many postings mention it.'
+            limit:
+              type: integer
+              description: '`keyword_too_common` only: the ceiling a keyword must stay under.'
+    SearchRequest:
+      description: The shared filter plus paging.
+      allOf:
+      - $ref: '#/components/schemas/JobFilter'
+      - type: object
+        properties:
+          page:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 1
+          limit:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+  responses:
+    Busy:
+      description: Capacity exhausted for the moment (`busy`), or the filter did not finish inside the statement deadline (`timeout`). Retry after `retry_after_seconds`, or narrow the filter.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: 'A valid key without a subscription to this API. Answered by the
+
+        marketplace, `message` only.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MarketplaceError'
+          example:
+            message: You are not subscribed to this API.
+    BadRequest:
+      description: No body, or a body that is not a JSON object
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: invalid_request
+            message: the request has no body. Send a JSON object; {} is the filter that matches everything.
+            meta:
+              request_id: 7930fd0adc27ed3a6cde6a53ce338d2c
+              took_ms: 0.07
+    RateLimited:
+      description: Plan quota or rate limit exceeded. Answered by the marketplace; see its rate-limit headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MarketplaceError'
+    Unauthorized:
+      description: 'Missing or invalid key. Answered by the marketplace before the request
+
+        reaches this API, in its own shape — `message` only, no `error`.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MarketplaceError'
+    Unprocessable:
+      description: 'The filter is well-formed JSON but cannot be run. `error` is
+
+        `invalid_request` (an unknown key or a malformed value — `message` names
+
+        it and lists the valid keys) or `keyword_too_common` (a `keywords` term
+
+        matches too many postings — `meta.estimated_matches` and `meta.limit` say
+
+        by how much).
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            unknownKey:
+              summary: A key the API does not have
+              value:
+                error: invalid_request
+                message: '''location_types'' is not a filter key. The keys are: cities, company_name, country_codes, days_ago, employment_type, handles, job_titles, keywords, limit, page, remote_flag, salary, seniority, source_platforms'
+                meta:
+                  request_id: de1bb62e86aa15134ec156b64dca09b8
+                  took_ms: 0.16
+            keywordTooCommon:
+              summary: '{"keywords": ["experience"]}'
+              value:
+                error: keyword_too_common
+                message: '''experience'' appears in about 64% of postings (~1,123,068 matches); keyword aggregates are computed for terms under 130,000 matches. Search the role with job_titles, or use a rarer keyword -- narrowing by city, country or employment type does not help: the term scan comes first.'
+                meta:
+                  term: experience
+                  estimated_matches: 1123068
+                  limit: 130000
+                  request_id: 32c3863fafb59454773a444e7e782c7f
+                  took_ms: 1.48
   securitySchemes:
     rapidApiKey:
       type: apiKey
